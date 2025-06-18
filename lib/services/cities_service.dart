@@ -11,7 +11,7 @@ class CitiesService {
     try {
       print('CitiesService: Fetching cities...');
       
-      final response = await _apiService.get('/cities');
+      final response = await _apiService.get('/api/cities');
       print('CitiesService: Received response: $response');
 
       if (response == null) {
