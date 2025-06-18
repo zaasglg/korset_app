@@ -10,7 +10,9 @@ import 'package:korset_app/pages/map_listings.dart';
 import 'package:korset_app/pages/turbo_sales.dart';
 import 'package:korset_app/pages/online_stores.dart';
 import 'package:korset_app/models/category.dart';
+import 'package:korset_app/models/city.dart';
 import 'package:korset_app/services/category_service.dart';
+import 'package:korset_app/services/cities_service.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -24,6 +26,7 @@ class _HomePageState extends State<HomePage> {
   final TextEditingController _searchController = TextEditingController();
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   final CategoryService _categoryService = CategoryService();
+  final CitiesService _citiesService = CitiesService();
 
   // Add selected tab index
   int _selectedTabIndex = 0;
@@ -41,12 +44,44 @@ class _HomePageState extends State<HomePage> {
   String? _errorMessage;
   bool _isRefreshing = false;
 
+  // Cities data
+  List<City> _cities = [];
+  List<City> _filteredCities = [];
+  final TextEditingController _citySearchController = TextEditingController();
+  bool _showCityDropdown = false;
+  bool _citiesLoading = false;
+
+  // Fallback cities list
+  final List<City> _fallbackCities = [
+    City(id: 1, name: 'Алматы', region: 'Алматинская область'),
+    City(id: 2, name: 'Астана', region: 'Акмолинская область'),
+    City(id: 3, name: 'Шымкент', region: 'Туркестанская область'),
+    City(id: 4, name: 'Актобе', region: 'Актюбинская область'),
+    City(id: 5, name: 'Тараз', region: 'Жамбылская область'),
+    City(id: 6, name: 'Павлодар', region: 'Павлодарская область'),
+    City(id: 7, name: 'Усть-Каменогорск', region: 'Восточно-Казахстанская область'),
+    City(id: 8, name: 'Семей', region: 'Восточно-Казахстанская область'),
+    City(id: 9, name: 'Атырау', region: 'Атырауская область'),
+    City(id: 10, name: 'Костанай', region: 'Костанайская область'),
+    City(id: 11, name: 'Петропавловск', region: 'Северо-Казахстанская область'),
+    City(id: 12, name: 'Орал', region: 'Западно-Казахстанская область'),
+    City(id: 13, name: 'Темиртау', region: 'Карагандинская область'),
+    City(id: 14, name: 'Туркестан', region: 'Туркестанская область'),
+    City(id: 15, name: 'Актау', region: 'Мангистауская область'),
+    City(id: 16, name: 'Кокшетау', region: 'Акмолинская область'),
+    City(id: 17, name: 'Талдыкорган', region: 'Алматинская область'),
+    City(id: 18, name: 'Экибастуз', region: 'Павлодарская область'),
+    City(id: 19, name: 'Рудный', region: 'Костанайская область'),
+    City(id: 20, name: 'Жезказган', region: 'Карагандинская область'),
+  ];
+
   // No default categories - we'll rely on the API
 
   @override
   void initState() {
     super.initState();
     _fetchCategories();
+    _fetchCities();
   }
 
   Future<void> _fetchCategories() async {
@@ -80,37 +115,56 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  Future<void> _fetchCities() async {
+    try {
+      setState(() {
+        _citiesLoading = true;
+      });
+
+      final cities = await _citiesService.getCities();
+
+      if (mounted) {
+        setState(() {
+          // Use API cities if available, otherwise fallback to local list
+          _cities = cities.isNotEmpty ? cities : _fallbackCities;
+          _filteredCities = _cities;
+          _citiesLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          // Use fallback cities if API fails
+          _cities = _fallbackCities;
+          _filteredCities = _cities;
+          _citiesLoading = false;
+        });
+      }
+      print('Error fetching cities, using fallback: $e');
+    }
+  }
+
+  void _filterCities(String query) {
+    setState(() {
+      if (query.isEmpty) {
+        _filteredCities = _cities;
+        _showCityDropdown = false;
+      } else {
+        _filteredCities = _cities
+            .where((city) => city.name.toLowerCase().contains(query.toLowerCase()))
+            .toList();
+        _showCityDropdown = _filteredCities.isNotEmpty;
+      }
+    });
+  }
+
   // Filter variables
-  String? _selectedCity;
+  City? _selectedCity;
   String? _selectedCategory;
   double _minPrice = 0;
   double _maxPrice = 100000000;
   final TextEditingController _minPriceController = TextEditingController();
   final TextEditingController _maxPriceController = TextEditingController();
-
-  // Cities list
-  final List<String> _cities = [
-    'Алматы',
-    'Астана',
-    'Шымкент',
-    'Актобе',
-    'Тараз',
-    'Павлодар',
-    'Усть-Каменогорск',
-    'Семей',
-    'Атырау',
-    'Костанай',
-    'Петропавловск',
-    'Орал',
-    'Темиртау',
-    'Туркестан',
-    'Актау',
-    'Кокшетау',
-    'Талдыкорган',
-    'Экибастуз',
-    'Рудный',
-    'Жезказган'
-  ];
 
   void _showFilterBottomSheet(BuildContext context) {
     showModalBottomSheet(
@@ -120,9 +174,18 @@ class _HomePageState extends State<HomePage> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (context) => Container(
-        padding: const EdgeInsets.all(24),
-        child: Column(
+      builder: (context) => GestureDetector(
+        onTap: () {
+          // Dismiss city dropdown when tapping outside
+          if (_showCityDropdown) {
+            setState(() {
+              _showCityDropdown = false;
+            });
+          }
+        },
+        child: Container(
+          padding: const EdgeInsets.all(24),
+          child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -160,34 +223,138 @@ class _HomePageState extends State<HomePage> {
               ),
             ),
             const SizedBox(height: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              decoration: BoxDecoration(
-                color: Colors.grey[50],
-                border: Border.all(color: Colors.grey[200]!),
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: DropdownButton<String>(
-                value: _selectedCity,
-                hint: Text(
-                  'Выберите город',
-                  style: TextStyle(color: Colors.grey[600]),
+            
+            // Searchable city field
+            Column(
+              children: [
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.grey[50],
+                    border: Border.all(color: Colors.grey[200]!),
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.02),
+                        blurRadius: 4,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: TextField(
+                    controller: _citySearchController,
+                    decoration: InputDecoration(
+                      hintText: _citiesLoading ? 'Загрузка городов...' : 'Введите название города',
+                      hintStyle: TextStyle(color: Colors.grey[600]),
+                      prefixIcon: Icon(Icons.location_on_outlined, color: Colors.grey[600]),
+                      suffixIcon: _citySearchController.text.isNotEmpty
+                          ? IconButton(
+                              icon: Icon(Icons.clear, color: Colors.grey[600]),
+                              onPressed: () {
+                                setState(() {
+                                  _citySearchController.clear();
+                                  _selectedCity = null;
+                                  _showCityDropdown = false;
+                                  _filteredCities = _cities;
+                                });
+                              },
+                            )
+                          : Icon(Icons.keyboard_arrow_down, color: Colors.grey[600]),
+                      border: InputBorder.none,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                    ),
+                    enabled: !_citiesLoading,
+                    onChanged: (value) {
+                      _filterCities(value);
+                      setState(() {
+                        if (value.isEmpty) {
+                          _selectedCity = null;
+                        }
+                      });
+                    },
+                    onTap: () {
+                      setState(() {
+                        if (_citySearchController.text.isEmpty) {
+                          _filteredCities = _cities;
+                        }
+                        _showCityDropdown = true;
+                      });
+                    },
+                  ),
                 ),
-                isExpanded: true,
-                underline: const SizedBox(),
-                icon: Icon(Icons.keyboard_arrow_down, color: Colors.grey[600]),
-                items: _cities.map((city) {
-                  return DropdownMenuItem<String>(
-                    value: city,
-                    child: Text(city),
-                  );
-                }).toList(),
-                onChanged: (value) {
-                  setState(() {
-                    _selectedCity = value;
-                  });
-                },
-              ),
+                
+                // Dropdown list
+                if (_showCityDropdown && _filteredCities.isNotEmpty)
+                  Container(
+                    margin: const EdgeInsets.only(top: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      border: Border.all(color: Colors.grey[200]!),
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.1),
+                          blurRadius: 8,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    constraints: const BoxConstraints(maxHeight: 200),
+                    child: ListView.builder(
+                      shrinkWrap: true,
+                      itemCount: _filteredCities.length,
+                      itemBuilder: (context, index) {
+                        final city = _filteredCities[index];
+                        return InkWell(
+                          onTap: () {
+                            setState(() {
+                              _selectedCity = city;
+                              _citySearchController.text = city.name;
+                              _showCityDropdown = false;
+                            });
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                            decoration: BoxDecoration(
+                              border: index < _filteredCities.length - 1
+                                  ? Border(bottom: BorderSide(color: Colors.grey[200]!))
+                                  : null,
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(Icons.location_on_outlined, 
+                                    color: Colors.grey[600], size: 20),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        city.name,
+                                        style: const TextStyle(
+                                          fontSize: 15,
+                                          color: Colors.black87,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                      if (city.region != null)
+                                        Text(
+                                          city.region!,
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: Colors.grey[600],
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+              ],
             ),
             const SizedBox(height: 20),
             
@@ -341,6 +508,9 @@ class _HomePageState extends State<HomePage> {
                           _selectedCategory = null;
                           _minPriceController.clear();
                           _maxPriceController.clear();
+                          _citySearchController.clear();
+                          _showCityDropdown = false;
+                          _filteredCities = _cities;
                         });
                         Navigator.pop(context);
                       },
@@ -396,6 +566,7 @@ class _HomePageState extends State<HomePage> {
             ),
             SizedBox(height: MediaQuery.of(context).viewInsets.bottom + 16),
           ],
+        ),
         ),
       ),
     );
