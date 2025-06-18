@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_iconly/flutter_iconly.dart';
 import 'package:korset_app/models/category.dart';
 import 'package:korset_app/services/category_service.dart';
+import 'package:korset_app/pages/category_page.dart';
 
 class CatalogPage extends StatefulWidget {
   const CatalogPage({super.key});
@@ -214,26 +215,25 @@ class _CatalogPageState extends State<CatalogPage> {
       itemCount: _categories.length,
       itemBuilder: (context, index) {
         final category = _categories[index];
-        return _buildCategoryCard(
-          icon: category.icon,
-          label: category.label,
-          bgColor: category.bgColor,
-        );
+        return _buildCategoryCard(category);
       },
     );
   }
 
-  Widget _buildCategoryCard({
-    required String icon,
-    required String label,
-    required Color bgColor,
-  }) {
+  Widget _buildCategoryCard(Category category) {
     return InkWell(
       borderRadius: BorderRadius.circular(16),
-      onTap: () {},
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => CategoryPage(category: category),
+          ),
+        );
+      },
       child: Container(
         decoration: BoxDecoration(
-          color: Color(0xffF2F2F2),
+          color: const Color(0xffF2F2F2),
           borderRadius: BorderRadius.circular(16),
         ),
         child: Column(
@@ -242,25 +242,39 @@ class _CatalogPageState extends State<CatalogPage> {
             Container(
               width: 48,
               height: 48,
-              child: Image.network(
-                icon,
-                width: 32,
-                height: 32,
-                fit: BoxFit.contain,
-                errorBuilder: (context, error, stackTrace) {
-                  return const Icon(
-                    Icons.category,
-                    size: 32,
-                    color: Colors.grey,
-                  );
-                },
-              ),
+              child: category.icon.startsWith('http')
+                  ? Image.network(
+                      category.icon,
+                      width: 32,
+                      height: 32,
+                      fit: BoxFit.contain,
+                      errorBuilder: (context, error, stackTrace) {
+                        return const Icon(
+                          Icons.category,
+                          size: 32,
+                          color: Colors.grey,
+                        );
+                      },
+                    )
+                  : Image.asset(
+                      category.icon,
+                      width: 32,
+                      height: 32,
+                      fit: BoxFit.contain,
+                      errorBuilder: (context, error, stackTrace) {
+                        return const Icon(
+                          Icons.category,
+                          size: 32,
+                          color: Colors.grey,
+                        );
+                      },
+                    ),
             ),
             const SizedBox(height: 8),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 6.0),
               child: Text(
-                label,
+                category.name,
                 textAlign: TextAlign.center,
                 style: const TextStyle(
                   fontSize: 13,

@@ -103,29 +103,14 @@ class _ProfilePageState extends State<ProfilePage> {
                           SizedBox(
                             height: 50.0,
                             width: double.infinity,
-                            child: AnimatedContainer(
-                              duration: const Duration(milliseconds: 300),
-                              curve: Curves.easeInOut,
-                              decoration: BoxDecoration(
-                                color: const Color(0xff183B4E),
-                                borderRadius: BorderRadius.circular(12.0),
-                              ),
-                              child: CupertinoButton(
-                                padding: EdgeInsets.zero,
+                            child: Material(
+                              color: const Color(0xff183B4E),
+                              borderRadius: BorderRadius.circular(16.0),
+                              elevation: 0,
+                              shadowColor: Colors.transparent,
+                              child: InkWell(
                                 borderRadius: BorderRadius.circular(16.0),
-                                child: const Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Text(
-                                      "Войти в профиль",
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.normal,
-                                        color: Colors.white,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                onPressed: () {
+                                onTap: () {
                                   showModalBottomSheet(
                                     context: context,
                                     backgroundColor: Colors.white,
@@ -241,6 +226,16 @@ class _ProfilePageState extends State<ProfilePage> {
                                     ),
                                   );
                                 },
+                                child: const Center(
+                                  child: Text(
+                                    "Войти в профиль",
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w500,
+                                      color: Colors.white,
+                                      fontSize: 16,
+                                    ),
+                                  ),
+                                ),
                               ),
                             ),
                           ),
