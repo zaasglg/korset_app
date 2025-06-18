@@ -706,74 +706,107 @@ class _HomePageState extends State<HomePage> {
 
                       // MARK: - Marketplace Features Block
                       Container(
-                        margin: const EdgeInsets.only(top: 24),
-                        height: 180,
-                        child: ListView(
-                          scrollDirection: Axis.horizontal,
+                        margin: const EdgeInsets.only(top: 32, bottom: 24),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            GestureDetector(
-                              onTap: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => const SecureDealsPage(),
-                                  ),
-                                );
-                              },
-                              child: _buildFeatureCard(
-                                color: const Color(0xFF56A3E6),
-                                image: "./assets/icons/wallet.png",
-                                title: "Безопасные\nсделки",
-                                subtitle: "Это просто и безопасно!",
+                            const Padding(
+                              padding: EdgeInsets.symmetric(horizontal: 4),
+                              child: Text(
+                                "Сервисы",
+                                style: TextStyle(
+                                  fontFamily: "Atyp",
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 24,
+                                  color: Color(0xFF1A1A1A),
+                                ),
                               ),
                             ),
-                            GestureDetector(
-                              onTap: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => const MapListingsPage(),
+                            const SizedBox(height: 20),
+                            // First row - 2 cards
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: GestureDetector(
+                                    onTap: () {
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (context) => const SecureDealsPage(),
+                                        ),
+                                      );
+                                    },
+                                    child: _buildModernFeatureCard(
+                                      icon: Icons.security_rounded,
+                                      title: "Безопасные сделки",
+                                      subtitle: "Защищённые платежи",
+                                      color: const Color(0xFF56A3E6),
+                                    ),
                                   ),
-                                );
-                              },
-                              child: _buildFeatureCard(
-                                color: const Color(0xFFF7B84B),
-                                image: "./assets/icons/map.png",
-                                title: "Объявления\nна карте",
-                                subtitle: "Все объявления в одном месте!",
-                              ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: GestureDetector(
+                                    onTap: () {
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (context) => const MapListingsPage(),
+                                        ),
+                                      );
+                                    },
+                                    child: _buildModernFeatureCard(
+                                      icon: Icons.map_rounded,
+                                      title: "На карте",
+                                      subtitle: "Поиск рядом",
+                                      color: const Color(0xFFF7B84B),
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
-                            GestureDetector(
-                              onTap: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => const TurboSalesPage(),
+                            const SizedBox(height: 12),
+                            // Second row - 2 cards
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: GestureDetector(
+                                    onTap: () {
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (context) => const TurboSalesPage(),
+                                        ),
+                                      );
+                                    },
+                                    child: _buildModernFeatureCard(
+                                      icon: Icons.rocket_launch_rounded,
+                                      title: "Турбо продажа",
+                                      subtitle: "Быстрое продвижение",
+                                      color: const Color(0xFFD16DD2),
+                                    ),
                                   ),
-                                );
-                              },
-                              child: _buildFeatureCard(
-                                color: const Color(0xFFD16DD2),
-                                image: "./assets/icons/rocket.png",
-                                title: "Турбо\nпродажа",
-                                subtitle: "Ваше предложение увидит максимум посетителей!",
-                              ),
-                            ),
-                            GestureDetector(
-                              onTap: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => const OnlineStoresPage(),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: GestureDetector(
+                                    onTap: () {
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (context) => const OnlineStoresPage(),
+                                        ),
+                                      );
+                                    },
+                                    child: _buildModernFeatureCard(
+                                      icon: Icons.storefront_rounded,
+                                      title: "Магазины",
+                                      subtitle: "Бизнес-профили",
+                                      color: const Color(0xFF5DBB6B),
+                                    ),
                                   ),
-                                );
-                              },
-                              child: _buildFeatureCard(
-                                color: const Color(0xFF5DBB6B),
-                                image: "./assets/icons/shop.png",
-                                title: "Онлайн-\nмагазины",
-                                subtitle: "Превратите свой профиль в полноценный магазин",
-                              ),
+                                ),
+                              ],
                             ),
                           ],
                         ),
@@ -1295,6 +1328,75 @@ Widget _buildFeatureCard({
           ],
         ),
       ],
+    ),
+  );
+}
+
+// Modern minimal feature card
+Widget _buildModernFeatureCard({
+  required IconData icon,
+  required String title,
+  required String subtitle,
+  required Color color,
+}) {
+  return AspectRatio(
+    aspectRatio: 1.0, // Делаем квадратными
+    child: Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(12), // Ровные квадратные края
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.08),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(
+              icon,
+              color: Colors.white,
+              size: 24,
+            ),
+          ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white,
+                  height: 1.2,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                subtitle,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.white.withOpacity(0.9),
+                  height: 1.3,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
     ),
   );
 }
