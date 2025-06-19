@@ -115,16 +115,37 @@ class _RegisterPageState extends State<RegisterPage> {
           style: TextStyle(
             fontFamily: "avenir",
             fontWeight: FontWeight.w500,
+            fontSize: 18,
+            letterSpacing: 0.5,
           ),
         ),
       ),
       body: SafeArea(
         child: SingleChildScrollView(
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 18.0),
+            padding: const EdgeInsets.symmetric(horizontal: 24.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
+                const SizedBox(height: 40),
+                const Text(
+                  "Создайте аккаунт",
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xff183B4E),
+                    letterSpacing: 0.5,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  "Заполните поля для регистрации",
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.black54,
+                    letterSpacing: 0.2,
+                  ),
+                ),
                 const SizedBox(height: 32),
                 TextField(
                   controller: _phoneController,
@@ -132,17 +153,26 @@ class _RegisterPageState extends State<RegisterPage> {
                     hintText: "+77__ ___ __ __",
                     hintStyle: const TextStyle(
                       fontFamily: "avenir",
-                      fontWeight: FontWeight.w600,
-                      color: Colors.black54,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.black38,
                     ),
-                    fillColor: Colors.grey[100],
+                    fillColor: Colors.grey[50],
                     filled: true,
                     contentPadding: const EdgeInsets.symmetric(
-                        vertical: 20.0, horizontal: 18.0),
+                        vertical: 18.0, horizontal: 20.0),
                     border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(14.0),
-                      borderSide: BorderSide.none,
+                      borderRadius: BorderRadius.circular(12.0),
+                      borderSide: BorderSide(color: Colors.grey.shade200, width: 1),
                     ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12.0),
+                      borderSide: BorderSide(color: Colors.grey.shade200, width: 1),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12.0),
+                      borderSide: const BorderSide(color: Color(0xff183B4E), width: 1),
+                    ),
+                    prefixIcon: const Icon(IconlyBroken.call, color: Colors.black45, size: 20),
                   ),
                   keyboardType: TextInputType.phone,
                   inputFormatters: [phoneMaskFormatter],
@@ -154,19 +184,57 @@ class _RegisterPageState extends State<RegisterPage> {
                     hintText: "Email",
                     hintStyle: const TextStyle(
                       fontFamily: "avenir",
-                      fontWeight: FontWeight.w600,
-                      color: Colors.black54,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.black38,
                     ),
-                    fillColor: Colors.grey[100],
+                    fillColor: Colors.grey[50],
                     filled: true,
                     contentPadding: const EdgeInsets.symmetric(
-                        vertical: 20.0, horizontal: 18.0),
+                        vertical: 18.0, horizontal: 20.0),
                     border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(14.0),
-                      borderSide: BorderSide.none,
+                      borderRadius: BorderRadius.circular(12.0),
+                      borderSide: BorderSide(color: Colors.grey.shade200, width: 1),
                     ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12.0),
+                      borderSide: BorderSide(color: Colors.grey.shade200, width: 1),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12.0),
+                      borderSide: const BorderSide(color: Color(0xff183B4E), width: 1),
+                    ),
+                    prefixIcon: const Icon(IconlyBroken.message, color: Colors.black45, size: 20),
                   ),
                   keyboardType: TextInputType.emailAddress,
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: _nameController,
+                  decoration: InputDecoration(
+                    hintText: "Имя",
+                    hintStyle: const TextStyle(
+                      fontFamily: "avenir",
+                      fontWeight: FontWeight.w500,
+                      color: Colors.black38,
+                    ),
+                    fillColor: Colors.grey[50],
+                    filled: true,
+                    contentPadding: const EdgeInsets.symmetric(
+                        vertical: 18.0, horizontal: 20.0),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12.0),
+                      borderSide: BorderSide(color: Colors.grey.shade200, width: 1),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12.0),
+                      borderSide: BorderSide(color: Colors.grey.shade200, width: 1),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12.0),
+                      borderSide: const BorderSide(color: Color(0xff183B4E), width: 1),
+                    ),
+                    prefixIcon: const Icon(IconlyBroken.profile, color: Colors.black45, size: 20),
+                  ),
                 ),
                 const SizedBox(height: 16),
                 TextField(
@@ -176,23 +244,33 @@ class _RegisterPageState extends State<RegisterPage> {
                     hintText: "Пароль",
                     hintStyle: const TextStyle(
                       fontFamily: "avenir",
-                      fontWeight: FontWeight.w600,
-                      color: Colors.black54,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.black38,
                     ),
-                    fillColor: Colors.grey[100],
+                    fillColor: Colors.grey[50],
                     filled: true,
                     contentPadding: const EdgeInsets.symmetric(
-                        vertical: 20.0, horizontal: 18.0),
+                        vertical: 18.0, horizontal: 20.0),
                     border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(14.0),
-                      borderSide: BorderSide.none,
+                      borderRadius: BorderRadius.circular(12.0),
+                      borderSide: BorderSide(color: Colors.grey.shade200, width: 1),
                     ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12.0),
+                      borderSide: BorderSide(color: Colors.grey.shade200, width: 1),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12.0),
+                      borderSide: const BorderSide(color: Color(0xff183B4E), width: 1),
+                    ),
+                    prefixIcon: const Icon(IconlyBroken.lock, color: Colors.black45, size: 20),
                     suffixIcon: IconButton(
                       icon: Icon(
                           _obscurePassword
                               ? Icons.visibility_off
                               : Icons.visibility,
-                          color: Colors.grey),
+                          color: Colors.grey,
+                          size: 20),
                       onPressed: () {
                         setState(() {
                           _obscurePassword = !_obscurePassword;
@@ -209,23 +287,33 @@ class _RegisterPageState extends State<RegisterPage> {
                     hintText: "Подтвердите пароль",
                     hintStyle: const TextStyle(
                       fontFamily: "avenir",
-                      fontWeight: FontWeight.w600,
-                      color: Colors.black54,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.black38,
                     ),
-                    fillColor: Colors.grey[100],
+                    fillColor: Colors.grey[50],
                     filled: true,
                     contentPadding: const EdgeInsets.symmetric(
-                        vertical: 20.0, horizontal: 18.0),
+                        vertical: 18.0, horizontal: 20.0),
                     border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(14.0),
-                      borderSide: BorderSide.none,
+                      borderRadius: BorderRadius.circular(12.0),
+                      borderSide: BorderSide(color: Colors.grey.shade200, width: 1),
                     ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12.0),
+                      borderSide: BorderSide(color: Colors.grey.shade200, width: 1),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12.0),
+                      borderSide: const BorderSide(color: Color(0xff183B4E), width: 1),
+                    ),
+                    prefixIcon: const Icon(IconlyBroken.lock, color: Colors.black45, size: 20),
                     suffixIcon: IconButton(
                       icon: Icon(
                           _obscureConfirmPassword
                               ? Icons.visibility_off
                               : Icons.visibility,
-                          color: Colors.grey),
+                          color: Colors.grey,
+                          size: 20),
                       onPressed: () {
                         setState(() {
                           _obscureConfirmPassword = !_obscureConfirmPassword;
@@ -234,124 +322,125 @@ class _RegisterPageState extends State<RegisterPage> {
                     ),
                   ),
                 ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: _nameController,
-                  decoration: InputDecoration(
-                    hintText: "Имя",
-                    hintStyle: const TextStyle(
-                      fontFamily: "avenir",
-                      fontWeight: FontWeight.w600,
-                      color: Colors.black54,
-                    ),
-                    fillColor: Colors.grey[100],
-                    filled: true,
-                    contentPadding: const EdgeInsets.symmetric(
-                        vertical: 20.0, horizontal: 18.0),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(14.0),
-                      borderSide: BorderSide.none,
-                    ),
-                  ),
-                ),
                 // Error message
                 if (_errorMessage != null)
                   Padding(
-                    padding: const EdgeInsets.only(bottom: 16.0),
+                    padding: const EdgeInsets.only(top: 16.0),
                     child: Container(
-                      padding: const EdgeInsets.all(12),
+                      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
                       decoration: BoxDecoration(
                         color: Colors.red.shade50,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.red.shade200),
+                        borderRadius: BorderRadius.circular(10),
                       ),
-                      child: Text(
-                        _errorMessage!,
-                        style: TextStyle(
-                          color: Colors.red.shade800,
-                          fontSize: 14,
-                        ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.info_outline,
+                            color: Colors.red.shade400,
+                            size: 20,
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              _errorMessage!,
+                              style: TextStyle(
+                                color: Colors.red.shade700,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
-                const SizedBox(height: 32),
+                const SizedBox(height: 40),
                 SizedBox(
                   width: double.infinity,
-                  height: 56,
+                  height: 54,
                   child: ElevatedButton(
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xff183B4E),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
+                        borderRadius: BorderRadius.circular(12),
                       ),
                       elevation: 0,
                     ),
                     onPressed: _isLoading ? null : _register,
                     child: _isLoading
-                        ? const CircularProgressIndicator(color: Colors.white)
-                        : const Text(
-                            "Продолжить",
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 18,
+                        ? SizedBox(
+                            width: 24,
+                            height: 24,
+                            child: CircularProgressIndicator(
                               color: Colors.white,
+                              strokeWidth: 2,
+                            ),
+                          )
+                        : const Text(
+                            "Создать аккаунт",
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 16,
+                              color: Colors.white,
+                              letterSpacing: 0.5,
                             ),
                           ),
                   ),
                 ),
-                const SizedBox(height: 14),
-                SizedBox(
-                  width: double.infinity,
-                  height: 56,
-                  child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor:
-                          const Color(0xff183B4E).withOpacity(0.08),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
+                const SizedBox(height: 16),
+                TextButton(
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                  },
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        "Уже есть аккаунт? ",
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey,
+                        ),
                       ),
-                      elevation: 0,
-                    ),
-                    onPressed: () {
-                      Navigator.of(context).pop();
-                    },
-                    child: const Text(
-                      "Войти",
-                      style: TextStyle(
-                        fontFamily: "avenir",
-                        fontWeight: FontWeight.bold,
-                        fontSize: 18,
-                        color: Color(0xff183B4E),
+                      Text(
+                        "Войти",
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 14,
+                          color: Color(0xff183B4E),
+                        ),
                       ),
-                    ),
+                    ],
                   ),
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: 40),
                 const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 8.0),
+                  padding: EdgeInsets.symmetric(horizontal: 16.0),
                   child: Text.rich(
                     TextSpan(
-                      text: "Регистрируясь на сайте, Вы принимаете условия ",
+                      text: "Регистрируясь, Вы принимаете ",
                       style: TextStyle(
                         fontFamily: "avenir",
-                        color: Colors.black54,
+                        color: Colors.black45,
                         fontSize: 13,
-                        height: 1.3,
+                        height: 1.5,
                       ),
                       children: [
                         TextSpan(
-                          text: "пользовательского соглашения",
+                          text: "пользовательское соглашение",
                           style: TextStyle(
                             color: Color(0xff183B4E),
-                            decoration: TextDecoration.underline,
+                            fontWeight: FontWeight.w500,
                           ),
                         ),
                         TextSpan(text: " и "),
                         TextSpan(
-                          text: "политики конфиденциальности",
+                          text: "политику конфиденциальности",
                           style: TextStyle(
                             color: Color(0xff183B4E),
-                            decoration: TextDecoration.underline,
+                            fontWeight: FontWeight.w500,
                           ),
                         ),
                       ],

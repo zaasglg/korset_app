@@ -20,10 +20,8 @@ class _CategoryPageState extends State<CategoryPage> {
   String _selectedSortOption = 'newest';
   String _selectedPriceRange = 'all';
   bool _showOnlyWithPhoto = false;
-  
-  // Category navigation - поддержка 2-го и 3-го уровня
-  Category? _selectedSubcategory;
-  Category? _selectedSubSubcategory;
+  String _selectedSubcategoryFilter = 'all'; // Фильтр по подкатегориям 2-го уровня
+  String _selectedSubSubcategoryFilter = 'all'; // Фильтр по подкатегориям 3-го уровня
   
   final List<String> _sortOptions = [
     'newest',
@@ -57,437 +55,163 @@ class _CategoryPageState extends State<CategoryPage> {
     '500000+': 'от 500 000 ₸',
   };
 
-  // Получить текущую активную категорию (самый глубокий выбранный уровень)
-  Category get _currentCategory {
-    if (_selectedSubSubcategory != null) return _selectedSubSubcategory!;
-    if (_selectedSubcategory != null) return _selectedSubcategory!;
-    return widget.category;
+  // Получить список подкатегорий для фильтра
+  List<String> get _subcategoryOptions {
+    List<String> options = ['all'];
+    if (widget.category.children.isNotEmpty) {
+      options.addAll(widget.category.children.map((cat) => cat.name));
+    }
+    return options;
   }
 
-  // Получить путь для breadcrumbs
-  List<Category> get _breadcrumbPath {
-    List<Category> path = [widget.category];
-    if (_selectedSubcategory != null) {
-      path.add(_selectedSubcategory!);
+  Map<String, String> get _subcategoryLabels {
+    Map<String, String> labels = {'all': 'Все подкатегории'};
+    for (var category in widget.category.children) {
+      labels[category.name] = category.name;
     }
-    if (_selectedSubSubcategory != null) {
-      path.add(_selectedSubSubcategory!);
-    }
-    return path;
+    return labels;
   }
 
-  // Проверить, нужно ли показывать подкатегории или товары
-  bool get _shouldShowSubcategories {
-    if (_selectedSubSubcategory != null) {
-      return _selectedSubSubcategory!.children.isNotEmpty;
+  // Получить список подкатегорий 3-го уровня для фильтра
+  List<String> get _subSubcategoryOptions {
+    List<String> options = ['all'];
+    if (_selectedSubcategoryFilter != 'all') {
+      final selectedSubcat = widget.category.children.firstWhere(
+        (cat) => cat.name == _selectedSubcategoryFilter,
+        orElse: () => widget.category.children.first,
+      );
+      if (selectedSubcat.children.isNotEmpty) {
+        options.addAll(selectedSubcat.children.map((cat) => cat.name));
+      }
     }
-    if (_selectedSubcategory != null) {
-      return _selectedSubcategory!.children.isNotEmpty;
-    }
-    return widget.category.children.isNotEmpty;
+    return options;
   }
 
-  // Получить текущие подкатегории для отображения
-  List<Category> get _currentSubcategories {
-    if (_selectedSubcategory != null && _selectedSubSubcategory == null) {
-      return _selectedSubcategory!.children;
+  Map<String, String> get _subSubcategoryLabels {
+    Map<String, String> labels = {'all': 'Все подкатегории'};
+    if (_selectedSubcategoryFilter != 'all') {
+      final selectedSubcat = widget.category.children.firstWhere(
+        (cat) => cat.name == _selectedSubcategoryFilter,
+        orElse: () => widget.category.children.first,
+      );
+      for (var category in selectedSubcat.children) {
+        labels[category.name] = category.name;
+      }
     }
-    if (_selectedSubcategory == null) {
-      return widget.category.children;
-    }
-    return [];
+    return labels;
   }
 
-  // Пример данных товаров - в реальном приложении будет из API
   List<Map<String, dynamic>> get _filteredProducts {
-    // Мок данные для демонстрации
-    List<Map<String, dynamic>> products = [
-      {
-        'id': '1',
-        'title': 'Продам 3к кв в кирпичном доме',
-        'price': '17 300 000 ₸',
-        'location': 'Туркестан',
-        'image': 'assets/images/image.webp',
-        'hasPhoto': true,
-        'createdAt': DateTime.now().subtract(const Duration(days: 1)),
-        'priceNumeric': 17300000,
-        'views': 250,
-      },
-      {
-        'id': '2',
-        'title': 'Студия в новостройке',
-        'price': '8 500 000 ₸',
-        'location': 'Алматы',
-        'image': 'assets/images/image.webp',
-        'hasPhoto': true,
-        'createdAt': DateTime.now().subtract(const Duration(days: 3)),
-        'priceNumeric': 8500000,
-        'views': 180,
-      },
-      {
-        'id': '3',
-        'title': '2к квартира с ремонтом',
-        'price': '12 000 000 ₸',
-        'location': 'Шымкент',
-        'image': 'assets/images/image.webp',
-        'hasPhoto': true,
-        'createdAt': DateTime.now().subtract(const Duration(hours: 5)),
-        'priceNumeric': 12000000,
-        'views': 320,
-      },
-      {
-        'id': '4',
-        'title': 'Дом в пригороде',
-        'price': '25 000 000 ₸',
-        'location': 'Астана',
-        'image': 'assets/images/image.webp',
-        'hasPhoto': false,
-        'createdAt': DateTime.now().subtract(const Duration(days: 7)),
-        'priceNumeric': 25000000,
-        'views': 95,
-      },
-    ];
-    
-    // Применяем фильтры
-    List<Map<String, dynamic>> filtered = products.where((product) {
-      // Фильтр по цене
-      if (_selectedPriceRange != 'all') {
-        int price = product['priceNumeric'];
+    final products = _getMockProducts();
+    List<Map<String, dynamic>> filtered = products;
+
+    // Фильтр по подкатегории 2-го уровня
+    if (_selectedSubcategoryFilter != 'all') {
+      filtered = filtered.where((product) => 
+        product['subcategory'] == _selectedSubcategoryFilter).toList();
+    }
+
+    // Фильтр по подкатегории 3-го уровня
+    if (_selectedSubSubcategoryFilter != 'all') {
+      filtered = filtered.where((product) => 
+        product['subSubcategory'] == _selectedSubSubcategoryFilter).toList();
+    }
+
+    // Фильтр по цене
+    if (_selectedPriceRange != 'all') {
+      filtered = filtered.where((product) {
+        int price = product['priceNumeric'] ?? 0;
         switch (_selectedPriceRange) {
           case '0-50000':
-            if (price > 50000) return false;
-            break;
+            return price <= 50000;
           case '50000-200000':
-            if (price < 50000 || price > 200000) return false;
-            break;
+            return price > 50000 && price <= 200000;
           case '200000-500000':
-            if (price < 200000 || price > 500000) return false;
-            break;
+            return price > 200000 && price <= 500000;
           case '500000+':
-            if (price < 500000) return false;
-            break;
+            return price > 500000;
+          default:
+            return true;
         }
-      }
-      
-      // Фильтр по фото
-      if (_showOnlyWithPhoto && !product['hasPhoto']) return false;
-      
-      return true;
-    }).toList();
-    
-    // Применяем сортировку
-    switch (_selectedSortOption) {
-      case 'newest':
-        filtered.sort((a, b) => b['createdAt'].compareTo(a['createdAt']));
-        break;
-      case 'oldest':
-        filtered.sort((a, b) => a['createdAt'].compareTo(b['createdAt']));
-        break;
-      case 'price_low':
-        filtered.sort((a, b) => a['priceNumeric'].compareTo(b['priceNumeric']));
-        break;
-      case 'price_high':
-        filtered.sort((a, b) => b['priceNumeric'].compareTo(a['priceNumeric']));
-        break;
-      case 'popular':
-        filtered.sort((a, b) => b['views'].compareTo(a['views']));
-        break;
+      }).toList();
     }
-    
-    return filtered;
-  }
 
-  void _showFiltersBottomSheet() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.white,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) => StatefulBuilder(
-        builder: (context, setModalState) => Container(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Handle
-              Center(
-                child: Container(
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: Colors.grey[300],
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 24),
-              
-              // Title
-              const Text(
-                'Фильтры и сортировка',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.black,
-                ),
-              ),
-              const SizedBox(height: 24),
-              
-              // Sort section
-              const Text(
-                'Сортировка',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
-                  color: Colors.black87,
-                ),
-              ),
-              const SizedBox(height: 12),
-              ...(_sortOptions.map((option) => RadioListTile<String>(
-                title: Text(_sortLabels[option]!),
-                value: option,
-                groupValue: _selectedSortOption,
-                activeColor: const Color(0xff183B4E),
-                onChanged: (value) {
-                  setModalState(() {
-                    _selectedSortOption = value!;
-                  });
-                },
-                contentPadding: EdgeInsets.zero,
-              ))),
-              
-              const SizedBox(height: 24),
-              
-              // Price range section
-              const Text(
-                'Цена',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
-                  color: Colors.black87,
-                ),
-              ),
-              const SizedBox(height: 12),
-              ...(_priceRanges.map((range) => RadioListTile<String>(
-                title: Text(_priceLabels[range]!),
-                value: range,
-                groupValue: _selectedPriceRange,
-                activeColor: const Color(0xff183B4E),
-                onChanged: (value) {
-                  setModalState(() {
-                    _selectedPriceRange = value!;
-                  });
-                },
-                contentPadding: EdgeInsets.zero,
-              ))),
-              
-              const SizedBox(height: 24),
-              
-              // Additional filters
-              CheckboxListTile(
-                title: const Text('Только с фото'),
-                value: _showOnlyWithPhoto,
-                activeColor: const Color(0xff183B4E),
-                onChanged: (value) {
-                  setModalState(() {
-                    _showOnlyWithPhoto = value!;
-                  });
-                },
-                contentPadding: EdgeInsets.zero,
-              ),
-              
-              const SizedBox(height: 32),
-              
-              // Apply button
-              Row(
-                children: [
-                  Expanded(
-                    child: TextButton(
-                      onPressed: () {
-                        setModalState(() {
-                          _selectedSortOption = 'newest';
-                          _selectedPriceRange = 'all';
-                          _showOnlyWithPhoto = false;
-                        });
-                      },
-                      child: const Text(
-                        'Сбросить',
-                        style: TextStyle(
-                          color: Colors.grey,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    flex: 2,
-                    child: ElevatedButton(
-                      onPressed: () {
-                        setState(() {
-                          // Apply filters
-                        });
-                        Navigator.pop(context);
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xff183B4E),
-                        foregroundColor: Colors.white,
-                        elevation: 0,
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                      ),
-                      child: const Text(
-                        'Применить',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              SizedBox(height: MediaQuery.of(context).viewInsets.bottom + 16),
-            ],
-          ),
-        ),
-      ),
-    );
+    // Фильтр по наличию фото
+    if (_showOnlyWithPhoto) {
+      filtered = filtered.where((product) => product['hasPhoto'] == true).toList();
+    }
+
+    // Сортировка
+    filtered.sort((a, b) {
+      switch (_selectedSortOption) {
+        case 'newest':
+          return (b['createdAt'] as DateTime? ?? DateTime.now())
+              .compareTo(a['createdAt'] as DateTime? ?? DateTime.now());
+        case 'oldest':
+          return (a['createdAt'] as DateTime? ?? DateTime.now())
+              .compareTo(b['createdAt'] as DateTime? ?? DateTime.now());
+        case 'price_low':
+          return (a['priceNumeric'] as int? ?? 0)
+              .compareTo(b['priceNumeric'] as int? ?? 0);
+        case 'price_high':
+          return (b['priceNumeric'] as int? ?? 0)
+              .compareTo(a['priceNumeric'] as int? ?? 0);
+        case 'popular':
+          return (b['views'] as int? ?? 0)
+              .compareTo(a['views'] as int? ?? 0);
+        default:
+          return 0;
+      }
+    });
+
+    return filtered;
   }
 
   @override
   Widget build(BuildContext context) {
-    final filteredProducts = _filteredProducts;
-    final currentCategory = _currentCategory;
-    final shouldShowSubcategories = _shouldShowSubcategories;
-    final currentSubcategories = _currentSubcategories;
-    
     return Scaffold(
       backgroundColor: Colors.grey[50],
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(IconlyBroken.arrowLeft, color: Colors.black),
-          onPressed: () {
-            // Обработка навигации назад через уровни категорий
-            if (_selectedSubSubcategory != null) {
-              setState(() {
-                _selectedSubSubcategory = null;
-              });
-            } else if (_selectedSubcategory != null) {
-              setState(() {
-                _selectedSubcategory = null;
-              });
-            } else {
-              Navigator.pop(context);
-            }
-          },
+          icon: const Icon(IconlyBroken.arrowLeft, color: Color(0xff183B4E)),
+          onPressed: () => Navigator.pop(context),
         ),
         title: Text(
-          currentCategory.name,
+          widget.category.name,
           style: const TextStyle(
-            color: Colors.black,
-            fontWeight: FontWeight.w600,
+            color: Color(0xff183B4E),
+            fontWeight: FontWeight.w700,
             fontSize: 18,
           ),
         ),
         centerTitle: true,
         actions: [
           IconButton(
-            icon: const Icon(IconlyBroken.search, color: Color(0xff183B4E)),
-            onPressed: () {
-              // TODO: Implement search functionality
-            },
+            icon: const Icon(IconlyBroken.filter, color: Color(0xff183B4E)),
+            onPressed: () => _showFiltersBottomSheet(),
           ),
         ],
       ),
       body: Column(
         children: [
-          // Breadcrumb навигация
-          if (_breadcrumbPath.length > 1) _buildBreadcrumbs(),
+          // Заголовок категории
+          _buildCategoryHeader(),
           
-          // Заголовок категории с иконкой
-          _buildCategoryHeader(currentCategory, shouldShowSubcategories, currentSubcategories, filteredProducts),
+          // Фильтры сверху
+          _buildTopFilters(),
           
-          // Показать подкатегории или товары с фильтрами
-          if (shouldShowSubcategories)
-            _buildSubcategoriesView(currentSubcategories)
-          else
-            _buildProductsView(filteredProducts),
-        ],
-      ),
-    );
-  }
-
-  // Построение breadcrumb навигации
-  Widget _buildBreadcrumbs() {
-    return Container(
-      color: Colors.white,
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-      child: Row(
-        children: [
+          // Список товаров
           Expanded(
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: _breadcrumbPath.asMap().entries.map((entry) {
-                  final index = entry.key;
-                  final category = entry.value;
-                  final isLast = index == _breadcrumbPath.length - 1;
-                  
-                  return Row(
-                    children: [
-                      GestureDetector(
-                        onTap: isLast ? null : () {
-                          // Навигация назад к этому уровню
-                          setState(() {
-                            if (index == 0) {
-                              _selectedSubcategory = null;
-                              _selectedSubSubcategory = null;
-                            } else if (index == 1) {
-                              _selectedSubSubcategory = null;
-                            }
-                          });
-                        },
-                        child: Text(
-                          category.name,
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: isLast ? FontWeight.w600 : FontWeight.w500,
-                            color: isLast ? const Color(0xff183B4E) : Colors.grey[600],
-                          ),
-                        ),
-                      ),
-                      if (!isLast) ...[
-                        const SizedBox(width: 8),
-                        Icon(
-                          Icons.chevron_right,
-                          size: 16,
-                          color: Colors.grey[400],
-                        ),
-                        const SizedBox(width: 8),
-                      ],
-                    ],
-                  );
-                }).toList(),
-              ),
-            ),
+            child: _buildProductsGrid(),
           ),
         ],
       ),
     );
   }
 
-  // Построение заголовка категории
-  Widget _buildCategoryHeader(Category currentCategory, bool shouldShowSubcategories, 
-                              List<Category> currentSubcategories, List<Map<String, dynamic>> filteredProducts) {
+  Widget _buildCategoryHeader() {
     return Container(
       color: Colors.white,
       padding: const EdgeInsets.all(20),
@@ -497,22 +221,22 @@ class _CategoryPageState extends State<CategoryPage> {
             width: 60,
             height: 60,
             decoration: BoxDecoration(
-              color: currentCategory.bgColor,
+              color: widget.category.bgColor,
               borderRadius: BorderRadius.circular(16),
               boxShadow: [
                 BoxShadow(
-                  color: currentCategory.bgColor.withOpacity(0.3),
+                  color: widget.category.bgColor.withOpacity(0.3),
                   blurRadius: 8,
                   offset: const Offset(0, 4),
                 ),
               ],
             ),
             child: Center(
-              child: currentCategory.icon.startsWith('http')
+              child: widget.category.icon.startsWith('http')
                   ? ClipRRect(
                       borderRadius: BorderRadius.circular(12),
                       child: Image.network(
-                        currentCategory.icon,
+                        widget.category.icon,
                         width: 32,
                         height: 32,
                         fit: BoxFit.cover,
@@ -526,7 +250,7 @@ class _CategoryPageState extends State<CategoryPage> {
                       ),
                     )
                   : Image.asset(
-                      currentCategory.icon,
+                      widget.category.icon,
                       width: 32,
                       height: 32,
                       fit: BoxFit.contain,
@@ -539,7 +263,7 @@ class _CategoryPageState extends State<CategoryPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  currentCategory.name,
+                  widget.category.name,
                   style: const TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.w700,
@@ -548,9 +272,7 @@ class _CategoryPageState extends State<CategoryPage> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  shouldShowSubcategories
-                      ? '${currentSubcategories.length} подкатегорий'
-                      : '${filteredProducts.length} объявлений',
+                  '${_filteredProducts.length} объявлений',
                   style: TextStyle(
                     fontSize: 14,
                     color: Colors.grey[600],
@@ -564,220 +286,234 @@ class _CategoryPageState extends State<CategoryPage> {
     );
   }
 
-  // Построение сетки подкатегорий
-  Widget _buildSubcategoriesView(List<Category> subcategories) {
-    return Expanded(
-      child: GridView.builder(
-        padding: const EdgeInsets.all(20),
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 2,
-          childAspectRatio: 1.2,
-          crossAxisSpacing: 15,
-          mainAxisSpacing: 15,
-        ),
-        itemCount: subcategories.length,
-        itemBuilder: (context, index) {
-          final subcategory = subcategories[index];
-          return _buildSubcategoryCard(subcategory);
-        },
-      ),
-    );
-  }
+  Widget _buildTopFilters() {
+    if (widget.category.children.isEmpty) {
+      return const SizedBox.shrink();
+    }
 
-  // Построение вида товаров с панелью фильтров
-  Widget _buildProductsView(List<Map<String, dynamic>> products) {
-    return Expanded(
+    return Container(
+      color: Colors.white,
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Панель фильтров
-          Container(
-            color: Colors.white,
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    _sortLabels[_selectedSortOption]!,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      color: Color(0xff183B4E),
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
-                GestureDetector(
-                  onTap: _showFiltersBottomSheet,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: const Color(0xff183B4E).withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(
-                          IconlyBroken.filter,
-                          size: 16,
-                          color: Color(0xff183B4E),
-                        ),
-                        const SizedBox(width: 6),
-                        const Text(
-                          'Фильтры',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Color(0xff183B4E),
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
+          // Подкатегории 2-го уровня
+          if (_subcategoryOptions.length > 1) ...[
+            const Text(
+              'Подкатегория:',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF1A1A1A),
+              ),
             ),
-          ),
-          
-          const Divider(height: 1, color: Color(0xFFE0E0E0)),
-          
-          // Сетка товаров
-          Expanded(
-            child: products.isEmpty
-                ? _buildEmptyState()
-                : GridView.builder(
-                    padding: const EdgeInsets.all(20),
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 2,
-                      childAspectRatio: 0.7,
-                      crossAxisSpacing: 15,
-                      mainAxisSpacing: 15,
-                    ),
-                    itemCount: products.length,
-                    itemBuilder: (context, index) {
-                      final product = products[index];
-                      return _buildProductCard(product);
+            const SizedBox(height: 8),
+            Container(
+              height: 36,
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                itemCount: _subcategoryOptions.length,
+                itemBuilder: (context, index) {
+                  final option = _subcategoryOptions[index];
+                  final isSelected = _selectedSubcategoryFilter == option;
+                  
+                  return GestureDetector(
+                    onTap: () {
+                      setState(() {
+                        _selectedSubcategoryFilter = option;
+                        _selectedSubSubcategoryFilter = 'all'; // Сбросить 3-й уровень
+                      });
                     },
-                  ),
-          ),
+                    child: Container(
+                      margin: const EdgeInsets.only(right: 8),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: isSelected ? const Color(0xff183B4E) : Colors.grey[100],
+                        borderRadius: BorderRadius.circular(18),
+                        border: Border.all(
+                          color: isSelected ? const Color(0xff183B4E) : Colors.grey[300]!,
+                          width: 1,
+                        ),
+                      ),
+                      child: Text(
+                        _subcategoryLabels[option] ?? option,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: isSelected ? Colors.white : Colors.grey[700],
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+
+          // Подкатегории 3-го уровня
+          if (_selectedSubcategoryFilter != 'all' && _subSubcategoryOptions.length > 1) ...[
+            const SizedBox(height: 12),
+            const Text(
+              'Тип:',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF1A1A1A),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Container(
+              height: 36,
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                itemCount: _subSubcategoryOptions.length,
+                itemBuilder: (context, index) {
+                  final option = _subSubcategoryOptions[index];
+                  final isSelected = _selectedSubSubcategoryFilter == option;
+                  
+                  return GestureDetector(
+                    onTap: () {
+                      setState(() {
+                        _selectedSubSubcategoryFilter = option;
+                      });
+                    },
+                    child: Container(
+                      margin: const EdgeInsets.only(right: 8),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: isSelected ? const Color(0xff183B4E) : Colors.grey[100],
+                        borderRadius: BorderRadius.circular(18),
+                        border: Border.all(
+                          color: isSelected ? const Color(0xff183B4E) : Colors.grey[300]!,
+                          width: 1,
+                        ),
+                      ),
+                      child: Text(
+                        _subSubcategoryLabels[option] ?? option,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: isSelected ? Colors.white : Colors.grey[700],
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
         ],
       ),
     );
   }
 
-  // Построение карточки подкатегории
-  Widget _buildSubcategoryCard(Category subcategory) {
-    return GestureDetector(
-      onTap: () {
-        setState(() {
-          if (_selectedSubcategory == null) {
-            // Переход с уровня 1 на уровень 2
-            _selectedSubcategory = subcategory;
-          } else {
-            // Переход с уровня 2 на уровень 3
-            _selectedSubSubcategory = subcategory;
-          }
-        });
-      },
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: subcategory.bgColor.withOpacity(0.3),
-            width: 1,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
+  Widget _buildFilterChip(String label, bool isSelected) {
+    return Container(
+      margin: const EdgeInsets.only(right: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: isSelected ? const Color(0xff183B4E) : Colors.grey[100],
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: isSelected ? const Color(0xff183B4E) : Colors.grey[300]!,
+          width: 1,
         ),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              // Иконка категории
-              Container(
-                width: 50,
-                height: 50,
-                decoration: BoxDecoration(
-                  color: subcategory.bgColor,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Center(
-                  child: subcategory.icon.startsWith('http')
-                      ? ClipRRect(
-                          borderRadius: BorderRadius.circular(8),
-                          child: Image.network(
-                            subcategory.icon,
-                            width: 28,
-                            height: 28,
-                            fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) {
-                              return const Icon(
-                                Icons.category,
-                                size: 24,
-                                color: Colors.white,
-                              );
-                            },
-                          ),
-                        )
-                      : Image.asset(
-                          subcategory.icon,
-                          width: 28,
-                          height: 28,
-                          fit: BoxFit.contain,
-                        ),
-                ),
-              ),
-              const SizedBox(height: 12),
-              
-              // Название категории
-              Text(
-                subcategory.name,
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: Color(0xFF1A1A1A),
-                ),
-                textAlign: TextAlign.center,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-              const SizedBox(height: 4),
-              
-              // Количество подкатегорий или товаров
-              Text(
-                subcategory.children.isNotEmpty
-                    ? '${subcategory.children.length} подкатегорий'
-                    : 'Товары',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.grey[600],
-                ),
-              ),
-              
-              // Индикатор стрелки
-              const SizedBox(height: 8),
-              Icon(
-                Icons.arrow_forward_ios,
-                size: 12,
-                color: Colors.grey[400],
-              ),
-            ],
-          ),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w500,
+          color: isSelected ? Colors.white : Colors.grey[700],
         ),
       ),
     );
   }
 
+  Widget _buildProductsGrid() {
+    final products = _filteredProducts;
+    
+    if (products.isEmpty) {
+      return _buildEmptyState();
+    }
+
+    return GridView.builder(
+      padding: const EdgeInsets.all(20),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        childAspectRatio: 0.7,
+        crossAxisSpacing: 15,
+        mainAxisSpacing: 15,
+      ),
+      itemCount: products.length,
+      itemBuilder: (context, index) {
+        final product = products[index];
+        return _buildProductCard(product);
+      },
+    );
+  }
+
+  List<Map<String, dynamic>> _getMockProducts() {
+    return [
+      {
+        'id': '1',
+        'title': 'Продам 3к кв в кирпичном доме',
+        'price': '17 300 000 ₸',
+        'location': 'Туркестан',
+        'image': 'assets/images/image.webp',
+        'hasPhoto': true,
+        'subcategory': 'Квартиры',
+        'subSubcategory': 'Вторичка',
+        'priceNumeric': 17300000,
+        'createdAt': DateTime.now().subtract(const Duration(days: 1)),
+        'views': 120,
+      },
+      {
+        'id': '2',
+        'title': 'Студия в новостройке',
+        'price': '8 500 000 ₸',
+        'location': 'Алматы',
+        'image': 'assets/images/image.webp',
+        'hasPhoto': true,
+        'subcategory': 'Квартиры',
+        'subSubcategory': 'Новостройка',
+        'priceNumeric': 8500000,
+        'createdAt': DateTime.now().subtract(const Duration(days: 10)),
+        'views': 95,
+      },
+      {
+        'id': '3',
+        'title': '2к квартира с ремонтом',
+        'price': '12 000 000 ₸',
+        'location': 'Шымкент',
+        'image': 'assets/images/image.webp',
+        'hasPhoto': true,
+        'subcategory': 'Квартиры',
+        'subSubcategory': 'Вторичка',
+        'priceNumeric': 12000000,
+        'createdAt': DateTime.now().subtract(const Duration(days: 5)),
+        'views': 110,
+      },
+      {
+        'id': '4',
+        'title': 'Дом в пригороде',
+        'price': '25 000 000 ₸',
+        'location': 'Астана',
+        'image': 'assets/images/image.webp',
+        'hasPhoto': false,
+        'subcategory': 'Дома',
+        'subSubcategory': 'Пригород',
+        'priceNumeric': 25000000,
+        'createdAt': DateTime.now().subtract(const Duration(days: 30)),
+        'views': 80,
+      },
+    ];
+  }
+
   Widget _buildEmptyState() {
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(32),
+        padding: const EdgeInsets.all(32.0),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -789,54 +525,28 @@ class _CategoryPageState extends State<CategoryPage> {
                 borderRadius: BorderRadius.circular(60),
               ),
               child: Icon(
-                IconlyBroken.document,
-                size: 60,
+                IconlyBroken.search,
+                size: 48,
                 color: Colors.grey[400],
               ),
             ),
             const SizedBox(height: 24),
             const Text(
-              'Объявления не найдены',
+              'Ничего не найдено',
               style: TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.w600,
-                color: Colors.black87,
+                color: Color(0xFF1A1A1A),
               ),
             ),
             const SizedBox(height: 8),
             Text(
               'Попробуйте изменить параметры поиска',
               style: TextStyle(
-                fontSize: 16,
+                fontSize: 14,
                 color: Colors.grey[600],
               ),
               textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 24),
-            ElevatedButton(
-              onPressed: () {
-                setState(() {
-                  _selectedSortOption = 'newest';
-                  _selectedPriceRange = 'all';
-                  _showOnlyWithPhoto = false;
-                });
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xff183B4E),
-                foregroundColor: Colors.white,
-                elevation: 0,
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-              ),
-              child: const Text(
-                'Сбросить фильтры',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
             ),
           ],
         ),
@@ -850,17 +560,7 @@ class _CategoryPageState extends State<CategoryPage> {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => DetailPage(
-              product: {
-                'image': product['image'],
-                'title': product['title'],
-                'location': product['location'],
-                'price': product['price'],
-                'description': 'Подробное описание товара будет здесь...',
-                'seller': 'Продавец',
-                'sellerSince': '2023',
-              },
-            ),
+            builder: (context) => DetailPage(product: product),
           ),
         );
       },
@@ -870,7 +570,7 @@ class _CategoryPageState extends State<CategoryPage> {
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.05),
+              color: Colors.black.withOpacity(0.08),
               blurRadius: 8,
               offset: const Offset(0, 2),
             ),
@@ -882,91 +582,70 @@ class _CategoryPageState extends State<CategoryPage> {
             // Изображение
             Expanded(
               flex: 3,
-              child: Stack(
-                children: [
-                  ClipRRect(
-                    borderRadius: const BorderRadius.vertical(
-                      top: Radius.circular(16),
-                    ),
-                    child: Container(
-                      width: double.infinity,
-                      color: Colors.grey[100],
-                      child: product['hasPhoto']
-                          ? Image.asset(
-                              product['image'],
-                              fit: BoxFit.cover,
-                              width: double.infinity,
-                              errorBuilder: (context, error, stackTrace) {
-                                return Container(
-                                  color: Colors.grey[200],
-                                  child: Icon(
-                                    Icons.image_not_supported,
-                                    size: 40,
-                                    color: Colors.grey[400],
-                                  ),
-                                );
-                              },
-                            )
-                          : Container(
+              child: Container(
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                  color: Colors.grey[200],
+                ),
+                child: ClipRRect(
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                  child: product['hasPhoto'] 
+                      ? Image.asset(
+                          product['image'],
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) {
+                            return Container(
                               color: Colors.grey[200],
                               child: Icon(
                                 Icons.image_not_supported,
                                 size: 40,
                                 color: Colors.grey[400],
                               ),
-                            ),
-                    ),
-                  ),
-                  // Кнопка избранного
-                  Positioned(
-                    top: 8,
-                    right: 8,
-                    child: Container(
-                      padding: const EdgeInsets.all(6),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.9),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: const Icon(
-                        IconlyBroken.heart,
-                        size: 16,
-                        color: Colors.red,
-                      ),
-                    ),
-                  ),
-                ],
+                            );
+                          },
+                        )
+                      : Container(
+                          color: Colors.grey[200],
+                          child: Icon(
+                            Icons.image_not_supported,
+                            size: 40,
+                            color: Colors.grey[400],
+                          ),
+                        ),
+                ),
               ),
             ),
             
-            // Контент
+            // Информация о товаре
             Expanded(
               flex: 2,
               child: Padding(
                 padding: const EdgeInsets.all(12),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    // Заголовок
+                    // Title
                     Text(
                       product['title'],
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         fontWeight: FontWeight.w600,
-                        fontSize: 13,
-                        color: Color(0xff2F2D2C),
-                        height: 1.2,
+                        fontSize: 14,
+                        color: Color(0xff1A1A1A),
+                        height: 1.3,
                       ),
                     ),
                     const SizedBox(height: 8),
-                    
-                    // Местоположение
+                    // Location
                     Row(
                       children: [
                         Icon(
-                          Icons.location_on,
-                          size: 12,
-                          color: Colors.grey[600],
+                          Icons.location_on_outlined,
+                          size: 14,
+                          color: Colors.grey[500],
                         ),
                         const SizedBox(width: 4),
                         Expanded(
@@ -975,6 +654,7 @@ class _CategoryPageState extends State<CategoryPage> {
                             style: TextStyle(
                               fontSize: 12,
                               color: Colors.grey[600],
+                              fontWeight: FontWeight.w500,
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
@@ -1006,6 +686,258 @@ class _CategoryPageState extends State<CategoryPage> {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  void _showFiltersBottomSheet() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(24),
+        ),
+      ),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setModalState) => Container(
+          padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 32.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Handle bar
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.grey[300],
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+              
+              // Title
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Фильтры',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF1A1A1A),
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: () {
+                      setModalState(() {
+                        _selectedSortOption = 'newest';
+                        _selectedPriceRange = 'all';
+                        _showOnlyWithPhoto = false;
+                        _selectedSubcategoryFilter = 'all';
+                        _selectedSubSubcategoryFilter = 'all';
+                      });
+                      setState(() {
+                        _selectedSortOption = 'newest';
+                        _selectedPriceRange = 'all';
+                        _showOnlyWithPhoto = false;
+                        _selectedSubcategoryFilter = 'all';
+                        _selectedSubSubcategoryFilter = 'all';
+                      });
+                    },
+                    child: const Text(
+                      'Сбросить',
+                      style: TextStyle(
+                        color: Color(0xff183B4E),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              
+              const SizedBox(height: 20),
+              
+              // Сортировка
+              const Text(
+                'Сортировка',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF1A1A1A),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Column(
+                children: _sortOptions.map((option) {
+                  return RadioListTile<String>(
+                    contentPadding: EdgeInsets.zero,
+                    title: Text(_sortLabels[option] ?? option),
+                    value: option,
+                    groupValue: _selectedSortOption,
+                    activeColor: const Color(0xff183B4E),
+                    onChanged: (value) {
+                      setModalState(() {
+                        _selectedSortOption = value!;
+                      });
+                      setState(() {
+                        _selectedSortOption = value!;
+                      });
+                    },
+                  );
+                }).toList(),
+              ),
+              
+              const SizedBox(height: 20),
+              
+              // Подкатегории 2-го уровня
+              if (_subcategoryOptions.length > 1) ...[
+                const Text(
+                  'Подкатегория',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF1A1A1A),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Column(
+                  children: _subcategoryOptions.map((option) {
+                    return RadioListTile<String>(
+                      contentPadding: EdgeInsets.zero,
+                      title: Text(_subcategoryLabels[option] ?? option),
+                      value: option,
+                      groupValue: _selectedSubcategoryFilter,
+                      activeColor: const Color(0xff183B4E),
+                      onChanged: (value) {
+                        setModalState(() {
+                          _selectedSubcategoryFilter = value!;
+                          _selectedSubSubcategoryFilter = 'all';
+                        });
+                        setState(() {
+                          _selectedSubcategoryFilter = value!;
+                          _selectedSubSubcategoryFilter = 'all';
+                        });
+                      },
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 20),
+              ],
+
+              // Подкатегории 3-го уровня
+              if (_selectedSubcategoryFilter != 'all' && _subSubcategoryOptions.length > 1) ...[
+                const Text(
+                  'Тип',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF1A1A1A),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Column(
+                  children: _subSubcategoryOptions.map((option) {
+                    return RadioListTile<String>(
+                      contentPadding: EdgeInsets.zero,
+                      title: Text(_subSubcategoryLabels[option] ?? option),
+                      value: option,
+                      groupValue: _selectedSubSubcategoryFilter,
+                      activeColor: const Color(0xff183B4E),
+                      onChanged: (value) {
+                        setModalState(() {
+                          _selectedSubSubcategoryFilter = value!;
+                        });
+                        setState(() {
+                          _selectedSubSubcategoryFilter = value!;
+                        });
+                      },
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 20),
+              ],
+              
+              // Цена
+              const Text(
+                'Цена',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF1A1A1A),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Column(
+                children: _priceRanges.map((range) {
+                  return RadioListTile<String>(
+                    contentPadding: EdgeInsets.zero,
+                    title: Text(_priceLabels[range] ?? range),
+                    value: range,
+                    groupValue: _selectedPriceRange,
+                    activeColor: const Color(0xff183B4E),
+                    onChanged: (value) {
+                      setModalState(() {
+                        _selectedPriceRange = value!;
+                      });
+                      setState(() {
+                        _selectedPriceRange = value!;
+                      });
+                    },
+                  );
+                }).toList(),
+              ),
+              
+              const SizedBox(height: 20),
+              
+              // Только с фото
+              CheckboxListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Только с фото'),
+                value: _showOnlyWithPhoto,
+                activeColor: const Color(0xff183B4E),
+                onChanged: (value) {
+                  setModalState(() {
+                    _showOnlyWithPhoto = value!;
+                  });
+                  setState(() {
+                    _showOnlyWithPhoto = value!;
+                  });
+                },
+              ),
+              
+              const SizedBox(height: 24),
+              
+              // Apply button
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () => Navigator.pop(context),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xff183B4E),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    elevation: 0,
+                  ),
+                  child: Text(
+                    'Показать (${_filteredProducts.length})',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 16,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
