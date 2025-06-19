@@ -293,26 +293,44 @@ class _CategoryPageState extends State<CategoryPage> {
 
     return Container(
       color: Colors.white,
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+      padding: const EdgeInsets.symmetric(vertical: 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Подкатегории 2-го уровня
           if (_subcategoryOptions.length > 1) ...[
-            const Text(
-              'Подкатегория:',
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: Color(0xFF1A1A1A),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Row(
+                children: [
+                  Container(
+                    width: 4,
+                    height: 16,
+                    decoration: BoxDecoration(
+                      color: const Color(0xff183B4E),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  const Text(
+                    'Категории',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF1A1A1A),
+                      letterSpacing: 0.3,
+                    ),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 8),
-            Container(
-              height: 36,
+            const SizedBox(height: 12),
+            SizedBox(
+              height: 38,
               child: ListView.builder(
                 scrollDirection: Axis.horizontal,
                 itemCount: _subcategoryOptions.length,
+                padding: const EdgeInsets.symmetric(horizontal: 20),
                 itemBuilder: (context, index) {
                   final option = _subcategoryOptions[index];
                   final isSelected = _selectedSubcategoryFilter == option;
@@ -325,22 +343,29 @@ class _CategoryPageState extends State<CategoryPage> {
                       });
                     },
                     child: Container(
-                      margin: const EdgeInsets.only(right: 8),
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      margin: const EdgeInsets.only(right: 10),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
                       decoration: BoxDecoration(
-                        color: isSelected ? const Color(0xff183B4E) : Colors.grey[100],
-                        borderRadius: BorderRadius.circular(18),
+                        color: isSelected ? const Color(0xff183B4E) : Colors.white,
+                        borderRadius: BorderRadius.circular(19),
                         border: Border.all(
-                          color: isSelected ? const Color(0xff183B4E) : Colors.grey[300]!,
+                          color: isSelected ? const Color(0xff183B4E) : Colors.grey.shade200,
                           width: 1,
                         ),
+                        boxShadow: isSelected ? [
+                          BoxShadow(
+                            color: const Color(0xff183B4E).withOpacity(0.1),
+                            blurRadius: 4,
+                            offset: const Offset(0, 2),
+                          ),
+                        ] : null,
                       ),
                       child: Text(
                         _subcategoryLabels[option] ?? option,
                         style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
-                          color: isSelected ? Colors.white : Colors.grey[700],
+                          fontSize: 13,
+                          fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                          color: isSelected ? Colors.white : const Color(0xFF6D6D6D),
                         ),
                       ),
                     ),
@@ -352,21 +377,39 @@ class _CategoryPageState extends State<CategoryPage> {
 
           // Подкатегории 3-го уровня
           if (_selectedSubcategoryFilter != 'all' && _subSubcategoryOptions.length > 1) ...[
-            const SizedBox(height: 12),
-            const Text(
-              'Тип:',
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: Color(0xFF1A1A1A),
+            const SizedBox(height: 16),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Row(
+                children: [
+                  Container(
+                    width: 4,
+                    height: 16,
+                    decoration: BoxDecoration(
+                      color: const Color(0xff183B4E),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  const Text(
+                    'Типы',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF1A1A1A),
+                      letterSpacing: 0.3,
+                    ),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 8),
-            Container(
-              height: 36,
+            const SizedBox(height: 12),
+            SizedBox(
+              height: 38,
               child: ListView.builder(
                 scrollDirection: Axis.horizontal,
                 itemCount: _subSubcategoryOptions.length,
+                padding: const EdgeInsets.symmetric(horizontal: 20),
                 itemBuilder: (context, index) {
                   final option = _subSubcategoryOptions[index];
                   final isSelected = _selectedSubSubcategoryFilter == option;
@@ -378,22 +421,29 @@ class _CategoryPageState extends State<CategoryPage> {
                       });
                     },
                     child: Container(
-                      margin: const EdgeInsets.only(right: 8),
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      margin: const EdgeInsets.only(right: 10),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
                       decoration: BoxDecoration(
-                        color: isSelected ? const Color(0xff183B4E) : Colors.grey[100],
-                        borderRadius: BorderRadius.circular(18),
+                        color: isSelected ? const Color(0xff183B4E) : Colors.white,
+                        borderRadius: BorderRadius.circular(19),
                         border: Border.all(
-                          color: isSelected ? const Color(0xff183B4E) : Colors.grey[300]!,
+                          color: isSelected ? const Color(0xff183B4E) : Colors.grey.shade200,
                           width: 1,
                         ),
+                        boxShadow: isSelected ? [
+                          BoxShadow(
+                            color: const Color(0xff183B4E).withOpacity(0.1),
+                            blurRadius: 4,
+                            offset: const Offset(0, 2),
+                          ),
+                        ] : null,
                       ),
                       child: Text(
                         _subSubcategoryLabels[option] ?? option,
                         style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
-                          color: isSelected ? Colors.white : Colors.grey[700],
+                          fontSize: 13,
+                          fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                          color: isSelected ? Colors.white : const Color(0xFF6D6D6D),
                         ),
                       ),
                     ),
