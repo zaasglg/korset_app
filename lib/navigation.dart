@@ -3,21 +3,30 @@ import 'package:flutter_iconly/flutter_iconly.dart';
 import 'package:korset_app/pages/catalog.dart';
 import 'package:korset_app/pages/home.dart';
 import 'package:korset_app/pages/profile.dart';
-import 'package:korset_app/pages/publish_ad.dart';
+import 'package:korset_app/pages/publish_ad.dart'; // Using improved version
 import 'package:korset_app/pages/chat.dart';
 import 'package:korset_app/auth/login.dart';
 import 'package:korset_app/auth/register.dart';
 import 'package:korset_app/services/auth_service.dart';
 
 class NavigationMenu extends StatefulWidget {
-  const NavigationMenu({super.key});
+  final int initialIndex;
+  
+  const NavigationMenu({super.key, this.initialIndex = 0});
 
   @override
   State<NavigationMenu> createState() => _NavigationMenuState();
 }
 
 class _NavigationMenuState extends State<NavigationMenu> {
-  int _selectedIndex = 0;
+  late int _selectedIndex;
+
+  @override
+  void initState() {
+    super.initState();
+    // Use the initialIndex from the widget
+    _selectedIndex = widget.initialIndex;
+  }
 
   // List of widget screens for each tab
   final List<Widget> _pages = const [
