@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_iconly/flutter_iconly.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:korset_app/models/category.dart';
 import 'package:korset_app/services/category_service.dart';
 import 'package:korset_app/pages/category_page.dart';
@@ -239,35 +240,39 @@ class _CatalogPageState extends State<CatalogPage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Container(
+            SizedBox(
               width: 48,
               height: 48,
-              child: category.icon.startsWith('http')
-                  ? Image.network(
-                      category.icon,
+              child: (category.icon.isNotEmpty && category.icon.startsWith('http'))
+                  ? CachedNetworkImage(
+                      imageUrl: category.icon,
                       width: 32,
                       height: 32,
                       fit: BoxFit.contain,
-                      errorBuilder: (context, error, stackTrace) {
-                        return const Icon(
-                          Icons.category,
-                          size: 32,
-                          color: Colors.grey,
-                        );
-                      },
+                      placeholder: (context, url) => Container(
+                        width: 32,
+                        height: 32,
+                        decoration: BoxDecoration(
+                          color: Colors.grey[200],
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Center(
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Color(0xFF183B4E),
+                          ),
+                        ),
+                      ),
+                      errorWidget: (context, url, error) => const Icon(
+                        Icons.category,
+                        size: 32,
+                        color: Colors.grey,
+                      ),
                     )
-                  : Image.asset(
-                      category.icon,
-                      width: 32,
-                      height: 32,
-                      fit: BoxFit.contain,
-                      errorBuilder: (context, error, stackTrace) {
-                        return const Icon(
-                          Icons.category,
-                          size: 32,
-                          color: Colors.grey,
-                        );
-                      },
+                  : const Icon(
+                      Icons.category,
+                      size: 32,
+                      color: Colors.grey,
                     ),
             ),
             const SizedBox(height: 8),

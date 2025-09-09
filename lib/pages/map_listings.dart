@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_iconly/flutter_iconly.dart';
+// import 'package:korset_app/models/listing.dart';
+// import 'package:korset_app/widgets/listing_card.dart';
+import 'package:yandex_mapkit/yandex_mapkit.dart';
 
 class MapListingsPage extends StatefulWidget {
   const MapListingsPage({super.key});
@@ -11,7 +14,22 @@ class MapListingsPage extends StatefulWidget {
 class _MapListingsPageState extends State<MapListingsPage> {
   String selectedFilter = 'Все';
   final List<String> filters = ['Все', 'Недвижимость', 'Авто', 'Электроника', 'Мода'];
-
+  
+  // Контроллер для карты
+  late YandexMapController _mapController;
+  
+  // Контроллер для DraggableScrollableSheet
+  final DraggableScrollableController _scrollController = DraggableScrollableController();
+  
+  // Начальная позиция камеры (Алматы)
+  static const Point _defaultLocation = Point(latitude: 43.2220, longitude: 76.8512);
+  
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+  
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -39,212 +57,256 @@ class _MapListingsPageState extends State<MapListingsPage> {
           ),
         ],
       ),
-      body: Column(
+      body: Stack(
         children: [
-          // Filter Bar
-          Container(
-            height: 50,
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            child: ListView.builder(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              itemCount: filters.length,
-              itemBuilder: (context, index) {
-                final filter = filters[index];
-                final isSelected = filter == selectedFilter;
-                return GestureDetector(
-                  onTap: () {
-                    setState(() {
-                      selectedFilter = filter;
-                    });
-                  },
-                  child: Container(
-                    margin: const EdgeInsets.only(right: 12),
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: isSelected ? const Color(0xFFF7B84B) : Colors.white,
-                      borderRadius: BorderRadius.circular(20),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.05),
-                          blurRadius: 5,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: Text(
-                      filter,
-                      style: TextStyle(
-                        color: isSelected ? Colors.white : const Color(0xff183B4E),
-                        fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                        fontSize: 14,
-                      ),
-                    ),
-                  ),
-                );
-              },
-            ),
+          // Карта на весь экран
+          YandexMap(
+            onMapCreated: (YandexMapController controller) {
+              _mapController = controller;
+              _moveToInitialLocation();
+            },
+            mapObjects: _buildMapObjects(),
           ),
-
-          // Map Placeholder
-          Expanded(
-            flex: 3,
-            child: Container(
-              margin: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
-                    blurRadius: 15,
-                    offset: const Offset(0, 5),
-                  ),
-                ],
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(16),
-                child: Stack(
-                  children: [
-                    // Map Background (placeholder)
-                    Container(
-                      width: double.infinity,
-                      height: double.infinity,
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [
-                            const Color(0xFFF7B84B).withOpacity(0.1),
-                            const Color(0xFFF7B84B).withOpacity(0.2),
-                          ],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                      ),
-                      child: const Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              IconlyBold.location,
-                              size: 60,
-                              color: Color(0xFFF7B84B),
-                            ),
-                            SizedBox(height: 16),
-                            Text(
-                              'Карта объявлений',
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.w600,
-                                color: Color(0xff183B4E),
-                              ),
-                            ),
-                            SizedBox(height: 8),
-                            Text(
-                              'Здесь будет отображаться карта\nс доступными объявлениями',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: Colors.grey,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-
-                    // Mock pins
-                    Positioned(
-                      top: 60,
-                      left: 80,
-                      child: _buildMapPin('12M ₸', true),
-                    ),
-                    Positioned(
-                      top: 120,
-                      right: 60,
-                      child: _buildMapPin('850K ₸', false),
-                    ),
-                    Positioned(
-                      bottom: 100,
-                      left: 120,
-                      child: _buildMapPin('2.5M ₸', false),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-
-          // Listings Section
-          Expanded(
-            flex: 2,
-            child: Container(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text(
-                        'Найденные объявления',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w700,
-                          color: Color(0xff183B4E),
-                        ),
-                      ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFF7B84B).withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: const Text(
-                          '24 объявления',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: Color(0xFFF7B84B),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  Expanded(
-                    child: ListView.builder(
-                      itemCount: 3,
-                      itemBuilder: (context, index) {
-                        return _buildListingCard(index);
-                      },
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
+          
+          // Фильтры вверху
+          // Positioned(
+          //   top: 16,
+          //   left: 0,
+          //   right: 0,
+          //   child: Container(
+          //     height: 50,
+          //     padding: const EdgeInsets.symmetric(vertical: 8),
+          //     child: ListView.builder(
+          //       scrollDirection: Axis.horizontal,
+          //       padding: const EdgeInsets.symmetric(horizontal: 16),
+          //       itemCount: filters.length,
+          //       itemBuilder: (context, index) {
+          //         final filter = filters[index];
+          //         final isSelected = filter == selectedFilter;
+          //         return GestureDetector(
+          //           onTap: () {
+          //             setState(() {
+          //               selectedFilter = filter;
+          //             });
+          //           },
+          //           child: Container(
+          //             margin: const EdgeInsets.only(right: 12),
+          //             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          //             decoration: BoxDecoration(
+          //               color: isSelected ? const Color(0xFFF7B84B) : Colors.white,
+          //               borderRadius: BorderRadius.circular(20),
+          //               boxShadow: [
+          //                 BoxShadow(
+          //                   color: Colors.black.withValues(alpha: 0.05),
+          //                   blurRadius: 5,
+          //                   offset: const Offset(0, 2),
+          //                 ),
+          //               ],
+          //             ),
+          //             child: Text(
+          //               filter,
+          //               style: TextStyle(
+          //                 color: isSelected ? Colors.white : const Color(0xff183B4E),
+          //                 fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+          //                 fontSize: 14,
+          //               ),
+          //             ),
+          //           ),
+          //         );
+          //       },
+          //     ),
+          //   ),
+          // ),
+          
+          // DraggableScrollableSheet с объявлениями
+          // DraggableScrollableSheet(
+          //   controller: _scrollController,
+          //   initialChildSize: 0.3,
+          //   minChildSize: 0.15,
+          //   maxChildSize: 0.8,
+          //   builder: (context, scrollController) {
+          //     return Container(
+          //       decoration: const BoxDecoration(
+          //         color: Colors.white,
+          //         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          //         boxShadow: [
+          //           BoxShadow(
+          //             color: Colors.black12,
+          //             blurRadius: 10,
+          //             spreadRadius: 2,
+          //           ),
+          //         ],
+          //       ),
+          //       child: Column(
+          //         children: [
+          //           // Индикатор перетаскивания
+          //           Container(
+          //             margin: const EdgeInsets.only(top: 10, bottom: 10),
+          //             width: 40,
+          //             height: 4,
+          //             decoration: BoxDecoration(
+          //               color: Colors.grey[300],
+          //               borderRadius: BorderRadius.circular(10),
+          //             ),
+          //           ),
+                    
+          //           // Заголовок и количество объявлений
+          //           Padding(
+          //             padding: const EdgeInsets.symmetric(horizontal: 16),
+          //             child: Row(
+          //               mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          //               children: [
+          //                 const Text(
+          //                   'Найденные объявления',
+          //                   style: TextStyle(
+          //                     fontSize: 18,
+          //                     fontWeight: FontWeight.w700,
+          //                     color: Color(0xff183B4E),
+          //                   ),
+          //                 ),
+          //                 Container(
+          //                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          //                   decoration: BoxDecoration(
+          //                     color: const Color(0xFFF7B84B).withValues(alpha: 0.1),
+          //                     borderRadius: BorderRadius.circular(12),
+          //                   ),
+          //                   child: const Text(
+          //                     '24 объявления',
+          //                     style: TextStyle(
+          //                       fontSize: 12,
+          //                       fontWeight: FontWeight.w600,
+          //                       color: Color(0xFFF7B84B),
+          //                     ),
+          //                   ),
+          //                 ),
+          //           ],
+          //         ),
+          //         const SizedBox(height: 16),
+          //         Expanded(
+          //           child: ListView.builder(
+          //             controller: scrollController,
+          //             padding: const EdgeInsets.all(16),
+          //             itemCount: 3,
+          //             itemBuilder: (context, index) {
+          //               return _buildListingCard(index);
+          //             },
+          //           ),
+          //         ),
+          //       ],
+          //     ),
+          //   ),
+          // ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Функция поиска в разработке'),
-              backgroundColor: Color(0xFFF7B84B),
-            ),
-          );
-        },
-        backgroundColor: const Color(0xFFF7B84B),
-        label: const Text(
-          'Поиск в этой области',
-          style: TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.w600,
-          ),
+      
+      // Кнопка поиска в текущей области
+      // floatingActionButton: Padding(
+      //   padding: const EdgeInsets.only(bottom: 100.0),
+      //   child: FloatingActionButton.extended(
+      //     onPressed: () {
+      //       ScaffoldMessenger.of(context).showSnackBar(
+      //         const SnackBar(
+      //           content: Text('Функция поиска в разработке'),
+      //           backgroundColor: Color(0xFFF7B84B),
+      //         ),
+      //       );
+      //     },
+      //     backgroundColor: const Color(0xFFF7B84B),
+      //     label: const Text(
+      //       'Поиск в этой области',
+      //       style: TextStyle(
+      //         color: Colors.white,
+      //         fontWeight: FontWeight.w600,
+      //       ),
+      //     ),
+      //     icon: const Icon(IconlyBold.search, color: Colors.white),
+      //   ),
+      // ),
+    );
+  }
+
+  // Перемещение карты на начальное местоположение
+  void _moveToInitialLocation() {
+    _mapController.moveCamera(
+      animation: const MapAnimation(type: MapAnimationType.linear, duration: 0.5),
+      CameraUpdate.newCameraPosition(
+        CameraPosition(
+          target: _defaultLocation,
+          zoom: 12,
         ),
-        icon: const Icon(IconlyBold.search, color: Colors.white),
       ),
     );
+  }
+
+  // Создание объектов на карте (маркеры для объявлений)
+  List<MapObject> _buildMapObjects() {
+    final listings = [
+      {
+        'id': '1',
+        'title': 'Продам 3к квартиру в центре',
+        'price': '12 000 000 ₸',
+        'location': 'ул. Абая, 15',
+        'distance': '0.5 км',
+        'latitude': 43.2220 + 0.005,
+        'longitude': 76.8512 + 0.008,
+      },
+      {
+        'id': '2',
+        'title': 'Toyota Camry 2020',
+        'price': '8 500 000 ₸',
+        'location': 'пр. Достык, 89',
+        'distance': '1.2 км',
+        'latitude': 43.2220 - 0.003,
+        'longitude': 76.8512 + 0.004,
+      },
+      {
+        'id': '3',
+        'title': 'iPhone 14 Pro Max',
+        'price': '650 000 ₸',
+        'location': 'ТРЦ Мега',
+        'distance': '2.1 км',
+        'latitude': 43.2220 + 0.007,
+        'longitude': 76.8512 - 0.006,
+      },
+    ];
+    
+    List<MapObject> mapObjects = [];
+    
+    for (var listing in listings) {
+      // mapObjects.add(
+        // PlacemarkMapObject(
+        //   mapId: MapObjectId('listing_${listing['id']}'),
+        //   point: Point(
+        //     latitude: listing['latitude'] as double,
+        //     longitude: listing['longitude'] as double,
+        //   ),
+        //   icon: PlacemarkIcon.single(
+        //     PlacemarkIconStyle(
+        //       image: BitmapDescriptor.fromAssetImage('assets/icons/map.png'),
+        //       scale: 1.5,
+        //     ),
+        //   ),
+        //   text: PlacemarkText(
+        //     text: listing['price'] as String,
+        //     style: const PlacemarkTextStyle(
+        //       placement: TextStylePlacement.bottom,
+        //       color: Color(0xff183B4E),
+        //       outlineColor: Colors.white,
+        //     ),
+        //   ),
+        //   onTap: (_, __) {
+        //     // При нажатии на маркер, открываем нижний лист на большую высоту
+        //     _scrollController.animateTo(
+        //       0.5,
+        //       duration: const Duration(milliseconds: 300),
+        //       curve: Curves.easeInOut,
+        //     );
+        //   },
+        // ),
+      // );
+    }
+    
+    return mapObjects;
   }
 
   Widget _buildMapPin(String price, bool isSelected) {
@@ -259,7 +321,7 @@ class _MapListingsPageState extends State<MapListingsPage> {
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
+            color: Colors.black.withValues(alpha: 0.1),
             blurRadius: 5,
             offset: const Offset(0, 2),
           ),
@@ -311,7 +373,7 @@ class _MapListingsPageState extends State<MapListingsPage> {
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, 2),
           ),
@@ -352,11 +414,12 @@ class _MapListingsPageState extends State<MapListingsPage> {
                 ),
                 const SizedBox(height: 4),
                 Row(
-                  children: [                      Icon(
-                        IconlyBroken.location,
-                        size: 12,
-                        color: Colors.grey[600],
-                      ),
+                  children: [
+                    Icon(
+                      IconlyBroken.location,
+                      size: 12,
+                      color: Colors.grey[600],
+                    ),
                     const SizedBox(width: 4),
                     Text(
                       '${listing['location']} • ${listing['distance']}',
@@ -422,7 +485,7 @@ class _MapListingsPageState extends State<MapListingsPage> {
                       child: Container(
                         padding: const EdgeInsets.symmetric(vertical: 12),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFF7B84B).withOpacity(0.1),
+                          color: const Color(0xFFF7B84B).withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Text(

@@ -1,25 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_iconly/flutter_iconly.dart';
 import 'package:korset_app/services/favorites_service.dart';
-import 'package:korset_app/models/favorite_item.dart';
 
 class FavoriteButton extends StatefulWidget {
-  final String itemId;
-  final String title;
-  final String location;
-  final String price;
-  final String image;
+  final int productId;
   final double? size;
   final Color? activeColor;
   final Color? inactiveColor;
 
   const FavoriteButton({
     super.key,
-    required this.itemId,
-    required this.title,
-    required this.location,
-    required this.price,
-    required this.image,
+    required this.productId,
     this.size = 20,
     this.activeColor = Colors.red,
     this.inactiveColor = Colors.white,
@@ -60,11 +51,15 @@ class _FavoriteButtonState extends State<FavoriteButton>
   }
 
   Future<void> _checkFavoriteStatus() async {
-    final isFavorite = await FavoritesService.isFavorite(widget.itemId);
-    if (mounted) {
-      setState(() {
-        _isFavorite = isFavorite;
-      });
+    try {
+      final isFavorite = await FavoritesService.isFavorite(widget.productId);
+      if (mounted) {
+        setState(() {
+          _isFavorite = isFavorite;
+        });
+      }
+    } catch (e) {
+      // Error checking favorite status: $e
     }
   }
 
@@ -76,37 +71,28 @@ class _FavoriteButtonState extends State<FavoriteButton>
     });
 
     try {
-      bool success;
-      if (_isFavorite) {
-        success = await FavoritesService.removeFromFavorites(widget.itemId);
-        if (success && mounted) {
-          setState(() {
-            _isFavorite = false;
-          });
-          _showSnackBar('Удалено из избранного');
-        }
-      } else {
-        final favoriteItem = FavoriteItem(
-          id: widget.itemId,
-          title: widget.title,
-          location: widget.location,
-          price: widget.price,
-          image: widget.image,
-          addedAt: DateTime.now(),
-        );
-        success = await FavoritesService.addToFavorites(favoriteItem);
-        if (success && mounted) {
-          setState(() {
-            _isFavorite = true;
-          });
+      final newFavoriteStatus = await FavoritesService.toggleFavorite(
+        widget.productId, 
+        _isFavorite
+      );
+      
+      if (mounted) {
+        setState(() {
+          _isFavorite = newFavoriteStatus;
+        });
+        
+        if (newFavoriteStatus) {
           _animationController.forward().then((_) {
             _animationController.reverse();
           });
           _showSnackBar('Добавлено в избранное');
+        } else {
+          _showSnackBar('Удалено из избранного');
         }
       }
     } catch (e) {
-      _showSnackBar('Произошла ошибка');
+      _showSnackBar('Произошла ошибка: ${e.toString()}');
+      // Error toggling favorite: $e
     } finally {
       if (mounted) {
         setState(() {
@@ -140,11 +126,11 @@ class _FavoriteButtonState extends State<FavoriteButton>
             child: Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.9),
+                color: Colors.white.withValues(alpha: 0.9),
                 shape: BoxShape.circle,
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
+                    color: Colors.black.withValues(alpha: 0.1),
                     blurRadius: 4,
                     offset: const Offset(0, 2),
                   ),

@@ -1,4 +1,4 @@
-package com.example.korset_app
+package com.korset.app
 
 import io.flutter.embedding.android.FlutterActivity
 

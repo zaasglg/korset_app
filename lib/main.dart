@@ -1,7 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:korset_app/onboarding.dart';
+import 'services/service_manager.dart';
 
 Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  
+  // Инициализация оптимизированных сервисов
+  // Инициализация оптимизированных сервисов...
+  await serviceManager.initialize();
+  // Сервисы успешно инициализированы!
+  
   runApp(const MyApp());
 }
 

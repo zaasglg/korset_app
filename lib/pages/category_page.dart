@@ -2,6 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_iconly/flutter_iconly.dart';
 import 'package:korset_app/models/category.dart';
 import 'package:korset_app/pages/detail.dart';
+import 'package:korset_app/services/product_service.dart';
+import 'package:korset_app/models/product.dart';
+import 'package:korset_app/components/product_image_widget.dart';
+import 'package:korset_app/services/image_url_helper.dart';
+import 'package:korset_app/services/favorites_service.dart';
 
 class CategoryPage extends StatefulWidget {
   final Category category;
@@ -20,7 +25,7 @@ class _CategoryPageState extends State<CategoryPage> {
   String _selectedSortOption = 'newest';
   String _selectedPriceRange = 'all';
   bool _showOnlyWithPhoto = false;
-  String _selectedSubcategoryFilter = 'all'; // Фильтр по подкатегориям 2-го уровня
+  String _selectedSubcategoryFilter = ''; // Фильтр по подкатегориям 2-го уровня
   String _selectedSubSubcategoryFilter = 'all'; // Фильтр по подкатегориям 3-го уровня
   
   final List<String> _sortOptions = [
@@ -55,17 +60,36 @@ class _CategoryPageState extends State<CategoryPage> {
     '500000+': 'от 500 000 ₸',
   };
 
+  final ProductService _productService = ProductService();
+  List<Product> _products = [];
+  bool _isLoading = true;
+  String? _errorMessage;
+
+  // Favorites data
+  Set<int> _favoriteProductIds = <int>{};
+  bool _favoritesLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Устанавливаем первую подкатегорию по умолчанию
+    if (widget.category.children.isNotEmpty) {
+      _selectedSubcategoryFilter = widget.category.children.first.name;
+    }
+    _fetchProducts();
+    _fetchFavorites();
+  }
+
   // Получить список подкатегорий для фильтра
   List<String> get _subcategoryOptions {
-    List<String> options = ['all'];
     if (widget.category.children.isNotEmpty) {
-      options.addAll(widget.category.children.map((cat) => cat.name));
+      return widget.category.children.map((cat) => cat.name).toList();
     }
-    return options;
+    return [];
   }
 
   Map<String, String> get _subcategoryLabels {
-    Map<String, String> labels = {'all': 'Все подкатегории'};
+    Map<String, String> labels = {};
     for (var category in widget.category.children) {
       labels[category.name] = category.name;
     }
@@ -101,70 +125,185 @@ class _CategoryPageState extends State<CategoryPage> {
     return labels;
   }
 
-  List<Map<String, dynamic>> get _filteredProducts {
-    final products = _getMockProducts();
-    List<Map<String, dynamic>> filtered = products;
-
-    // Фильтр по подкатегории 2-го уровня
-    if (_selectedSubcategoryFilter != 'all') {
-      filtered = filtered.where((product) => 
-        product['subcategory'] == _selectedSubcategoryFilter).toList();
-    }
-
-    // Фильтр по подкатегории 3-го уровня
-    if (_selectedSubSubcategoryFilter != 'all') {
-      filtered = filtered.where((product) => 
-        product['subSubcategory'] == _selectedSubSubcategoryFilter).toList();
-    }
-
-    // Фильтр по цене
-    if (_selectedPriceRange != 'all') {
-      filtered = filtered.where((product) {
-        int price = product['priceNumeric'] ?? 0;
-        switch (_selectedPriceRange) {
-          case '0-50000':
-            return price <= 50000;
-          case '50000-200000':
-            return price > 50000 && price <= 200000;
-          case '200000-500000':
-            return price > 200000 && price <= 500000;
-          case '500000+':
-            return price > 500000;
-          default:
-            return true;
-        }
-      }).toList();
-    }
-
-    // Фильтр по наличию фото
-    if (_showOnlyWithPhoto) {
-      filtered = filtered.where((product) => product['hasPhoto'] == true).toList();
-    }
+  List<Product> get _filteredProducts {
+    // The filtering logic is now handled by the API call in _fetchProducts
+    // This getter now primarily handles sorting.
+    List<Product> filtered = List.from(_products);
 
     // Сортировка
     filtered.sort((a, b) {
       switch (_selectedSortOption) {
         case 'newest':
-          return (b['createdAt'] as DateTime? ?? DateTime.now())
-              .compareTo(a['createdAt'] as DateTime? ?? DateTime.now());
+          return b.createdAt.compareTo(a.createdAt);
         case 'oldest':
-          return (a['createdAt'] as DateTime? ?? DateTime.now())
-              .compareTo(b['createdAt'] as DateTime? ?? DateTime.now());
+          return a.createdAt.compareTo(b.createdAt);
         case 'price_low':
-          return (a['priceNumeric'] as int? ?? 0)
-              .compareTo(b['priceNumeric'] as int? ?? 0);
+          return a.price.compareTo(b.price);
         case 'price_high':
-          return (b['priceNumeric'] as int? ?? 0)
-              .compareTo(a['priceNumeric'] as int? ?? 0);
+          return b.price.compareTo(a.price);
         case 'popular':
-          return (b['views'] as int? ?? 0)
-              .compareTo(a['views'] as int? ?? 0);
+          // Если нет поля views, используем ID как показатель популярности
+          return b.id.compareTo(a.id);
         default:
           return 0;
       }
     });
 
     return filtered;
+  }
+
+  Future<void> _fetchFavorites() async {
+    try {
+      setState(() {
+        _favoritesLoading = true;
+      });
+
+      final favoriteItems = await FavoritesService.getFavorites();
+
+      if (mounted) {
+        setState(() {
+          _favoriteProductIds = favoriteItems
+              .map((item) => int.tryParse(item.id) ?? 0)
+              .where((id) => id > 0)
+              .toSet();
+          _favoritesLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _favoritesLoading = false;
+        });
+      }
+      print('Error fetching favorites: $e');
+    }
+  }
+
+  Future<void> _toggleFavorite(int productId) async {
+    try {
+      final isCurrentlyFavorite = _favoriteProductIds.contains(productId);
+      
+      // Optimistically update UI
+      setState(() {
+        if (isCurrentlyFavorite) {
+          _favoriteProductIds.remove(productId);
+        } else {
+          _favoriteProductIds.add(productId);
+        }
+      });
+
+      // Make API call
+      final newFavoriteStatus = await FavoritesService.toggleFavorite(
+        productId, 
+        isCurrentlyFavorite
+      );
+
+      // Verify the state matches the API response
+      if (mounted) {
+        setState(() {
+          if (newFavoriteStatus) {
+            _favoriteProductIds.add(productId);
+          } else {
+            _favoriteProductIds.remove(productId);
+          }
+        });
+      }
+    } catch (e) {
+      // Revert optimistic update on error
+      if (mounted) {
+        setState(() {
+          if (_favoriteProductIds.contains(productId)) {
+            _favoriteProductIds.remove(productId);
+          } else {
+            _favoriteProductIds.add(productId);
+          }
+        });
+      }
+      
+      // Show error message
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Ошибка при обновлении избранного: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      print('Error toggling favorite: $e');
+    }
+  }
+
+  Future<void> _fetchProducts() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    int effectiveCategoryId;
+    
+    // Определяем эффективный ID категории для запроса
+    if (_selectedSubcategoryFilter == 'all') {
+      // Если выбрано "Все подкатегории", используем родительскую категорию
+      effectiveCategoryId = widget.category.id;
+    } else {
+      // Если выбрана конкретная подкатегория
+      final selectedSubcat = widget.category.children.firstWhere(
+        (cat) => cat.name == _selectedSubcategoryFilter,
+      );
+      
+      if (_selectedSubSubcategoryFilter == 'all') {
+        // Если выбрано "Все подкате��ории" 3-го уровня, используем подкатегорию 2-го уровня
+        effectiveCategoryId = selectedSubcat.id;
+      } else {
+        // Если выбрана конкретная подкатегория 3-го уровня
+        final selectedSubSubcat = selectedSubcat.children.firstWhere(
+          (cat) => cat.name == _selectedSubSubcategoryFilter,
+        );
+        effectiveCategoryId = selectedSubSubcat.id;
+      }
+    }
+
+    // Отладочная информация
+    print('=== FETCH PRODUCTS DEBUG ===');
+    print('Category: ${widget.category.name} (ID: ${widget.category.id})');
+    print('Selected subcategory filter: $_selectedSubcategoryFilter');
+    print('Selected sub-subcategory filter: $_selectedSubSubcategoryFilter');
+    print('Effective category ID: $effectiveCategoryId');
+    print('Sort by: $_selectedSortOption');
+    print('Price range: $_selectedPriceRange');
+    print('Has photo: $_showOnlyWithPhoto');
+    print('============================');
+
+    try {
+      final fetchedProducts = await _productService.getProductsByCategory(
+        categoryId: effectiveCategoryId,
+        sortBy: _selectedSortOption,
+        priceRange: _selectedPriceRange,
+        hasPhoto: _showOnlyWithPhoto,
+      );
+      
+      print('=== API RESPONSE DEBUG ===');
+      print('Fetched products count: ${fetchedProducts.length}');
+      if (fetchedProducts.isNotEmpty) {
+        print('First product: ${fetchedProducts.first.name}');
+      }
+      print('==========================');
+      
+      setState(() {
+        _products = fetchedProducts;
+      });
+    } catch (e) {
+      print('=== ERROR DEBUG ===');
+      print('Error fetching products: $e');
+      print('===================');
+      setState(() {
+        _errorMessage = 'Не удалось загрузить продукты: $e';
+      });
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
   }
 
   @override
@@ -190,7 +329,9 @@ class _CategoryPageState extends State<CategoryPage> {
         actions: [
           IconButton(
             icon: const Icon(IconlyBroken.filter, color: Color(0xff183B4E)),
-            onPressed: () => _showFiltersBottomSheet(),
+            onPressed: () {
+              _showFiltersBottomSheet().then((_) => _fetchProducts());
+            },
           ),
         ],
       ),
@@ -225,7 +366,7 @@ class _CategoryPageState extends State<CategoryPage> {
               borderRadius: BorderRadius.circular(16),
               boxShadow: [
                 BoxShadow(
-                  color: widget.category.bgColor.withOpacity(0.3),
+                  color: widget.category.bgColor.withValues(alpha: 0.3),
                   blurRadius: 8,
                   offset: const Offset(0, 4),
                 ),
@@ -298,7 +439,7 @@ class _CategoryPageState extends State<CategoryPage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Подкатегории 2-го уровня
-          if (_subcategoryOptions.length > 1) ...[
+          if (_subcategoryOptions.isNotEmpty) ...[
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Row(
@@ -341,6 +482,7 @@ class _CategoryPageState extends State<CategoryPage> {
                         _selectedSubcategoryFilter = option;
                         _selectedSubSubcategoryFilter = 'all'; // Сбросить 3-й уровень
                       });
+                      _fetchProducts();
                     },
                     child: Container(
                       margin: const EdgeInsets.only(right: 10),
@@ -354,7 +496,7 @@ class _CategoryPageState extends State<CategoryPage> {
                         ),
                         boxShadow: isSelected ? [
                           BoxShadow(
-                            color: const Color(0xff183B4E).withOpacity(0.1),
+                            color: const Color(0xff183B4E).withValues(alpha: 0.1),
                             blurRadius: 4,
                             offset: const Offset(0, 2),
                           ),
@@ -419,6 +561,7 @@ class _CategoryPageState extends State<CategoryPage> {
                       setState(() {
                         _selectedSubSubcategoryFilter = option;
                       });
+                      _fetchProducts();
                     },
                     child: Container(
                       margin: const EdgeInsets.only(right: 10),
@@ -432,7 +575,7 @@ class _CategoryPageState extends State<CategoryPage> {
                         ),
                         boxShadow: isSelected ? [
                           BoxShadow(
-                            color: const Color(0xff183B4E).withOpacity(0.1),
+                            color: const Color(0xff183B4E).withValues(alpha: 0.1),
                             blurRadius: 4,
                             offset: const Offset(0, 2),
                           ),
@@ -457,30 +600,15 @@ class _CategoryPageState extends State<CategoryPage> {
     );
   }
 
-  Widget _buildFilterChip(String label, bool isSelected) {
-    return Container(
-      margin: const EdgeInsets.only(right: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: BoxDecoration(
-        color: isSelected ? const Color(0xff183B4E) : Colors.grey[100],
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: isSelected ? const Color(0xff183B4E) : Colors.grey[300]!,
-          width: 1,
-        ),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.w500,
-          color: isSelected ? Colors.white : Colors.grey[700],
-        ),
-      ),
-    );
-  }
-
   Widget _buildProductsGrid() {
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_errorMessage != null) {
+      return Center(child: Text(_errorMessage!));
+    }
+
     final products = _filteredProducts;
     
     if (products.isEmpty) {
@@ -491,9 +619,9 @@ class _CategoryPageState extends State<CategoryPage> {
       padding: const EdgeInsets.all(20),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2,
-        childAspectRatio: 0.7,
-        crossAxisSpacing: 15,
-        mainAxisSpacing: 15,
+        childAspectRatio: 0.6,
+        crossAxisSpacing: 7,
+        mainAxisSpacing: 7,
       ),
       itemCount: products.length,
       itemBuilder: (context, index) {
@@ -501,63 +629,6 @@ class _CategoryPageState extends State<CategoryPage> {
         return _buildProductCard(product);
       },
     );
-  }
-
-  List<Map<String, dynamic>> _getMockProducts() {
-    return [
-      {
-        'id': '1',
-        'title': 'Продам 3к кв в кирпичном доме',
-        'price': '17 300 000 ₸',
-        'location': 'Туркестан',
-        'image': 'assets/images/image.webp',
-        'hasPhoto': true,
-        'subcategory': 'Квартиры',
-        'subSubcategory': 'Вторичка',
-        'priceNumeric': 17300000,
-        'createdAt': DateTime.now().subtract(const Duration(days: 1)),
-        'views': 120,
-      },
-      {
-        'id': '2',
-        'title': 'Студия в новостройке',
-        'price': '8 500 000 ₸',
-        'location': 'Алматы',
-        'image': 'assets/images/image.webp',
-        'hasPhoto': true,
-        'subcategory': 'Квартиры',
-        'subSubcategory': 'Новостройка',
-        'priceNumeric': 8500000,
-        'createdAt': DateTime.now().subtract(const Duration(days: 10)),
-        'views': 95,
-      },
-      {
-        'id': '3',
-        'title': '2к квартира с ремонтом',
-        'price': '12 000 000 ₸',
-        'location': 'Шымкент',
-        'image': 'assets/images/image.webp',
-        'hasPhoto': true,
-        'subcategory': 'Квартиры',
-        'subSubcategory': 'Вторичка',
-        'priceNumeric': 12000000,
-        'createdAt': DateTime.now().subtract(const Duration(days: 5)),
-        'views': 110,
-      },
-      {
-        'id': '4',
-        'title': 'Дом в пригороде',
-        'price': '25 000 000 ₸',
-        'location': 'Астана',
-        'image': 'assets/images/image.webp',
-        'hasPhoto': false,
-        'subcategory': 'Дома',
-        'subSubcategory': 'Пригород',
-        'priceNumeric': 25000000,
-        'createdAt': DateTime.now().subtract(const Duration(days: 30)),
-        'views': 80,
-      },
-    ];
   }
 
   Widget _buildEmptyState() {
@@ -604,13 +675,13 @@ class _CategoryPageState extends State<CategoryPage> {
     );
   }
 
-  Widget _buildProductCard(Map<String, dynamic> product) {
+  Widget _buildProductCard(Product product) {
     return GestureDetector(
       onTap: () {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => DetailPage(product: product),
+            builder: (context) => DetailPage(productId: product.id),
           ),
         );
       },
@@ -620,100 +691,80 @@ class _CategoryPageState extends State<CategoryPage> {
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.06),
-              blurRadius: 12,
-              offset: const Offset(0, 4),
-              spreadRadius: 0,
+              color: Colors.black.withValues(alpha: 0.04),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
             ),
           ],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Image section
+            // Image section with enhanced design
             Expanded(
-              flex: 3,
+              flex: 2,
               child: Stack(
                 children: [
                   ClipRRect(
                     borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-                    child: AspectRatio(
-                      aspectRatio: 1.2,
-                      child: product['hasPhoto'] 
-                        ? Image.asset(
-                            product['image'],
-                            fit: BoxFit.cover,
-                            width: double.infinity,
-                            height: double.infinity,
-                            errorBuilder: (context, error, stackTrace) {
-                              return Container(
-                                color: Colors.grey[200],
-                                child: Icon(
-                                  Icons.image_not_supported,
-                                  size: 40,
-                                  color: Colors.grey[400],
-                                ),
-                              );
-                            },
-                          )
-                        : Container(
-                            color: Colors.grey[200],
-                            child: Icon(
-                              Icons.image_not_supported,
-                              size: 40,
-                              color: Colors.grey[400],
+                    child: Container(
+                      width: double.infinity,
+                      height: 200,
+                      decoration: const BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            Color(0xFFF8FAFC),
+                            Color(0xFFF1F5F9),
+                          ],
+                        ),
+                      ),
+                      child: ProductImageWidget(
+                        imageUrl: ImageUrlHelper.isValidPath(product.mainPhoto)
+                            ? ImageUrlHelper.getImageUrl(product.mainPhoto)
+                            : null,
+                        videoUrl: ImageUrlHelper.isValidPath(product.videoUrl)
+                            ? ImageUrlHelper.getVideoUrl(product.videoUrl)
+                            : null,
+                        videoPath: ImageUrlHelper.isValidPath(product.video)
+                            ? ImageUrlHelper.getVideoUrl(product.video)
+                            : null,
+                        fit: BoxFit.cover,
+                        fallbackAsset: 'assets/images/image.webp',
+                        borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                      ),
+                    ),
+                  ),
+                  // Enhanced favorite button
+                  Positioned(
+                    top: 10,
+                    right: 10,
+                    child: GestureDetector(
+                      onTap: () => _toggleFavorite(product.id),
+                      child: Container(
+                        width: 36,
+                        height: 36,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.95),
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.1),
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
+                              spreadRadius: -1,
                             ),
-                          ),
-                    ),
-                  ),
-                  // Favorite button
-                  Positioned(
-                    top: 12,
-                    right: 12,
-                    child: Container(
-                      width: 32,
-                      height: 32,
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.9),
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.1),
-                            blurRadius: 8,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                      child: const Icon(
-                        IconlyBroken.heart,
-                        size: 16,
-                        color: Color(0xff183B4E),
-                      ),
-                    ),
-                  ),
-                  // Price badge
-                  Positioned(
-                    bottom: 12,
-                    left: 12,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: const Color(0xff183B4E),
-                        borderRadius: BorderRadius.circular(12),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.2),
-                            blurRadius: 8,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                      child: Text(
-                        product['price'],
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w700,
-                          fontSize: 12,
+                          ],
+                        ),
+                        child: Icon(
+                          _favoriteProductIds.contains(product.id)
+                            ? IconlyBold.heart
+                            : IconlyBroken.heart,
+                          size: 18,
+                          color: _favoriteProductIds.contains(product.id)
+                            ? const Color(0xFFEF4444)
+                            : const Color(0xFF64748B),
                         ),
                       ),
                     ),
@@ -721,51 +772,84 @@ class _CategoryPageState extends State<CategoryPage> {
                 ],
               ),
             ),
-            // Content section
+
+            // Enhanced content section
             Expanded(
               flex: 2,
-              child: Padding(
-                padding: const EdgeInsets.all(12),
+              child: Container(
+                padding: const EdgeInsets.all(14),
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.vertical(bottom: Radius.circular(16)),
+                ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    // Title
+                    // Location first - with modern icon
                     Text(
-                      product['title'],
+                      product.city.name,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Color.fromARGB(255, 188, 195, 206),
+                        fontWeight: FontWeight.w600,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+
+                    // Enhanced title
+                    Text(
+                      product.name,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 14,
-                        color: Color(0xff1A1A1A),
+                        fontWeight: FontWeight.w500,
+                        fontSize: 17,
+                        color: Color(0xFF0F172A),
                         height: 1.3,
+                        letterSpacing: -0.2,
                       ),
                     ),
-                    const SizedBox(height: 8),
-                    // Location
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.location_on_outlined,
-                          size: 14,
-                          color: Colors.grey[500],
-                        ),
-                        const SizedBox(width: 4),
-                        Expanded(
-                          child: Text(
-                            product['location'],
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.grey[600],
-                              fontWeight: FontWeight.w500,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
+
+                    const SizedBox(height: 4),
+
+                    // Price after title
+                    Text(
+                      product.formattedPrice,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 16,
+                        color: Color(0xFF1E293B),
+                        letterSpacing: -0.2,
+                      ),
                     ),
+
+                    const Spacer(),
+
+                    // Category badge at bottom
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF8B5CF6).withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: const Color(0xFF8B5CF6).withValues(alpha: 0.2),
+                          width: 1,
+                        ),
+                      ),
+                      child: Text(
+                        product.category.name,
+                        style: const TextStyle(
+                          fontSize: 10,
+                          color: Color(0xFF7C3AED),
+                          fontWeight: FontWeight.w600,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+
+                    const Spacer(),
                   ],
                 ),
               ),
@@ -776,8 +860,8 @@ class _CategoryPageState extends State<CategoryPage> {
     );
   }
 
-  void _showFiltersBottomSheet() {
-    showModalBottomSheet(
+  Future<void> _showFiltersBottomSheet() async {
+    return showModalBottomSheet(
       context: context,
       backgroundColor: Colors.white,
       isScrollControlled: true,
@@ -789,10 +873,11 @@ class _CategoryPageState extends State<CategoryPage> {
       builder: (context) => StatefulBuilder(
         builder: (context, setModalState) => Container(
           padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 32.0),
+          child: SingleChildScrollView(
           child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
               // Handle bar
               Center(
                 child: Container(
@@ -818,30 +903,44 @@ class _CategoryPageState extends State<CategoryPage> {
                       color: Color(0xFF1A1A1A),
                     ),
                   ),
-                  TextButton(
-                    onPressed: () {
-                      setModalState(() {
-                        _selectedSortOption = 'newest';
-                        _selectedPriceRange = 'all';
-                        _showOnlyWithPhoto = false;
-                        _selectedSubcategoryFilter = 'all';
-                        _selectedSubSubcategoryFilter = 'all';
-                      });
-                      setState(() {
-                        _selectedSortOption = 'newest';
-                        _selectedPriceRange = 'all';
-                        _showOnlyWithPhoto = false;
-                        _selectedSubcategoryFilter = 'all';
-                        _selectedSubSubcategoryFilter = 'all';
-                      });
-                    },
-                    child: const Text(
-                      'Сбросить',
-                      style: TextStyle(
-                        color: Color(0xff183B4E),
-                        fontWeight: FontWeight.w600,
+                  Row(
+                    children: [
+                      TextButton(
+                        onPressed: () {
+                          final firstSubcategory = widget.category.children.isNotEmpty 
+                              ? widget.category.children.first.name 
+                              : '';
+                          setModalState(() {
+                            _selectedSortOption = 'newest';
+                            _selectedPriceRange = 'all';
+                            _showOnlyWithPhoto = false;
+                            _selectedSubcategoryFilter = firstSubcategory;
+                            _selectedSubSubcategoryFilter = 'all';
+                          });
+                          setState(() {
+                            _selectedSortOption = 'newest';
+                            _selectedPriceRange = 'all';
+                            _showOnlyWithPhoto = false;
+                            _selectedSubcategoryFilter = firstSubcategory;
+                            _selectedSubSubcategoryFilter = 'all';
+                          });
+                        },
+                        child: const Text(
+                          'Сбросить',
+                          style: TextStyle(
+                            color: Color(0xff183B4E),
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                       ),
-                    ),
+                      IconButton(
+                        icon: const Icon(
+                          Icons.close,
+                          color: Color(0xff183B4E),
+                        ),
+                        onPressed: () => Navigator.pop(context),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -873,6 +972,7 @@ class _CategoryPageState extends State<CategoryPage> {
                       setState(() {
                         _selectedSortOption = value!;
                       });
+                      _fetchProducts();
                     },
                   );
                 }).toList(),
@@ -973,6 +1073,7 @@ class _CategoryPageState extends State<CategoryPage> {
                       setState(() {
                         _selectedPriceRange = value!;
                       });
+                      _fetchProducts();
                     },
                   );
                 }).toList(),
@@ -993,6 +1094,7 @@ class _CategoryPageState extends State<CategoryPage> {
                   setState(() {
                     _showOnlyWithPhoto = value!;
                   });
+                  _fetchProducts();
                 },
               ),
               
@@ -1022,6 +1124,7 @@ class _CategoryPageState extends State<CategoryPage> {
                 ),
               ),
             ],
+          ),
           ),
         ),
       ),

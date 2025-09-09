@@ -6,12 +6,13 @@ import 'package:korset_app/pages/profile.dart';
 import 'package:korset_app/pages/publish_ad.dart'; // Using improved version
 import 'package:korset_app/pages/chat.dart';
 import 'package:korset_app/auth/login.dart';
-import 'package:korset_app/auth/register.dart';
+import 'package:korset_app/auth/multi_step_register.dart';
 import 'package:korset_app/services/auth_service.dart';
+import 'package:korset_app/services/image_url_helper.dart';
 
 class NavigationMenu extends StatefulWidget {
   final int initialIndex;
-  
+
   const NavigationMenu({super.key, this.initialIndex = 0});
 
   @override
@@ -24,8 +25,11 @@ class _NavigationMenuState extends State<NavigationMenu> {
   @override
   void initState() {
     super.initState();
-    // Use the initialIndex from the widget
     _selectedIndex = widget.initialIndex;
+    // Принудительно обновляем user из API при запуске
+    AuthService.refreshUserFromApi().then((_) {
+      setState(() {});
+    });
   }
 
   // List of widget screens for each tab
@@ -49,7 +53,7 @@ class _NavigationMenuState extends State<NavigationMenu> {
         return;
       }
     }
-    
+
     setState(() {
       _selectedIndex = index;
     });
@@ -66,8 +70,7 @@ class _NavigationMenuState extends State<NavigationMenu> {
         ),
       ),
       builder: (context) => Container(
-        padding: const EdgeInsets.symmetric(
-            horizontal: 24.0, vertical: 32.0),
+        padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 32.0),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -108,14 +111,19 @@ class _NavigationMenuState extends State<NavigationMenu> {
                     borderRadius: BorderRadius.circular(16),
                   ),
                 ),
-                onPressed: () {
+                onPressed: () async {
                   Navigator.pop(context);
-                  Navigator.push(
+                  final result = await Navigator.push(
                     context,
                     MaterialPageRoute(
                       builder: (context) => const LoginPage(),
                     ),
                   );
+                  // Если авторизация прошла успешно, обновляем состояние
+                  if (result == true) {
+                    // Можно добавить обновление состояния здесь, если нужно
+                    // Например, через setState или другой механизм
+                  }
                 },
                 child: const Text(
                   "Войти через телефон",
@@ -133,7 +141,8 @@ class _NavigationMenuState extends State<NavigationMenu> {
               height: 60,
               child: ElevatedButton(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xff183B4E).withOpacity(0.1),
+                  backgroundColor:
+                      const Color(0xff183B4E).withValues(alpha: 0.1),
                   elevation: 0,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(16),
@@ -144,7 +153,7 @@ class _NavigationMenuState extends State<NavigationMenu> {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => const RegisterPage(),
+                      builder: (context) => const MultiStepRegisterPage(),
                     ),
                   );
                 },
@@ -236,7 +245,20 @@ class _NavigationMenuState extends State<NavigationMenu> {
                 icon: FutureBuilder<Map<String, dynamic>?>(
                   future: AuthService.getUser(),
                   builder: (context, snapshot) {
-                    if (snapshot.hasData) {
+                    // Default icon while loading or if no user
+                    if (!snapshot.hasData || snapshot.data == null) {
+                      return const Icon(IconlyBroken.profile);
+                    }
+
+                    final user = snapshot.data!;
+                    print("USer: $user");
+                    final raw = user['avatar']?.toString();
+                    print('NAV: user["avatar"] = $raw');
+                    // Build absolute URL if needed and validate
+                    final url = ImageUrlHelper.getImageUrl(raw);
+                    print('NAV: avatar url = $url');
+
+                    if (url.isEmpty) {
                       return Container(
                         width: 24,
                         height: 24,
@@ -249,7 +271,40 @@ class _NavigationMenuState extends State<NavigationMenu> {
                         ),
                       );
                     }
-                    return const Icon(IconlyBroken.profile);
+
+                    // Render avatar only for valid http(s) URLs
+                    final isHttp =
+                        url.startsWith('http://') || url.startsWith('https://');
+                    if (!isHttp) {
+                      return Container(
+                        width: 24,
+                        height: 24,
+                        decoration: const BoxDecoration(
+                          shape: BoxShape.circle,
+                          image: DecorationImage(
+                            image: AssetImage('assets/icons/no_avatar.png'),
+                            fit: BoxFit.cover,
+                          ),
+                        ),
+                      );
+                    }
+
+                    // Show avatar from network with graceful fallback
+                    return Container(
+                      width: 24,
+                      height: 24,
+                      decoration: const BoxDecoration(
+                        shape: BoxShape.circle,
+                      ),
+                      clipBehavior: Clip.antiAlias,
+                      child: Image.network(
+                        url,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) =>
+                            Image.asset('assets/icons/no_avatar.png',
+                                fit: BoxFit.cover),
+                      ),
+                    );
                   },
                 ),
                 label: 'Профиль',

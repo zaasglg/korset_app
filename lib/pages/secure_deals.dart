@@ -48,7 +48,7 @@ class _SecureDealsPageState extends State<SecureDealsPage> {
                 borderRadius: BorderRadius.circular(20),
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFF56A3E6).withOpacity(0.3),
+                    color: const Color(0xFF56A3E6).withValues(alpha: 0.3),
                     blurRadius: 20,
                     offset: const Offset(0, 10),
                   ),
@@ -60,7 +60,7 @@ class _SecureDealsPageState extends State<SecureDealsPage> {
                     width: 80,
                     height: 80,
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.2),
+                      color: Colors.white.withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: const Icon(
@@ -164,53 +164,7 @@ class _SecureDealsPageState extends State<SecureDealsPage> {
               description: 'Проверьте товар и подтвердите получение',
             ),
 
-            const SizedBox(height: 30),
 
-            // CTA Button
-            Container(
-              width: double.infinity,
-              height: 56,
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF56A3E6), Color(0xFF4A90E2)],
-                  begin: Alignment.centerLeft,
-                  end: Alignment.centerRight,
-                ),
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(
-                    color: const Color(0xFF56A3E6).withOpacity(0.3),
-                    blurRadius: 15,
-                    offset: const Offset(0, 8),
-                  ),
-                ],
-              ),
-              child: Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(16),
-                  onTap: () {
-                    // TODO: Implement secure deal creation
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Функция в разработке'),
-                        backgroundColor: Color(0xFF56A3E6),
-                      ),
-                    );
-                  },
-                  child: const Center(
-                    child: Text(
-                      'Начать безопасную сделку',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
           ],
         ),
       ),
@@ -231,7 +185,7 @@ class _SecureDealsPageState extends State<SecureDealsPage> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -243,7 +197,7 @@ class _SecureDealsPageState extends State<SecureDealsPage> {
             width: 50,
             height: 50,
             decoration: BoxDecoration(
-              color: color.withOpacity(0.1),
+              color: color.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(

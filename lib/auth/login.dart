@@ -13,6 +13,7 @@ class LoginPage extends StatefulWidget {
 class _LoginPageState extends State<LoginPage> {
   final TextEditingController _phoneController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
+  final FocusNode _passwordFocusNode = FocusNode();
   bool _obscurePassword = true;
   bool _isLoading = false;
   String? _errorMessage;
@@ -22,6 +23,113 @@ class _LoginPageState extends State<LoginPage> {
     filter: {"#": RegExp(r'[0-9]')},
     type: MaskAutoCompletionType.lazy,
   );
+
+  void _showErrorDialog(String title, String message) {
+    if (!mounted) return;
+    
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          elevation: 0,
+          backgroundColor: Colors.transparent,
+          child: Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              shape: BoxShape.rectangle,
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: const [
+                BoxShadow(
+                  color: Colors.black26,
+                  blurRadius: 10.0,
+                  offset: Offset(0.0, 10.0),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 80,
+                  height: 80,
+                  decoration: BoxDecoration(
+                    color: Colors.red.shade50,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.lock_outline,
+                    color: Colors.red.shade600,
+                    size: 40,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.black87,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  message,
+                  style: TextStyle(
+                    fontSize: 16,
+                    color: Colors.grey.shade600,
+                    height: 1.4,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 32),
+                SizedBox(
+                  width: double.infinity,
+                  height: 50,
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xff183B4E),
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                      // Проверяем состояние перед выполнением действий
+                      if (mounted) {
+                        // Очистить поле пароля для повторного ввода
+                        _passwordController.clear();
+                        // Фокус на поле пароля через небольшую задержку
+                        Future.delayed(const Duration(milliseconds: 300), () {
+                          if (mounted) {
+                            _passwordFocusNode.requestFocus();
+                          }
+                        });
+                      }
+                    },
+                    child: const Text(
+                      "Повторить попытку",
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
   
   Future<void> _login() async {
     // Reset error message
@@ -55,13 +163,37 @@ class _LoginPageState extends State<LoginPage> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Вход выполнен успешно')),
         );
-        Navigator.of(context).pop(); // Return to previous screen
+        // Возвращаемся на предыдущую страницу с результатом об успешной авторизации
+        Navigator.of(context).pop(true); // Передаем true как результат успешной авторизации
       }
     } catch (e) {
       if (mounted) {
-        setState(() {
-          _errorMessage = 'Ошибка: ${e.toString()}';
-        });
+        final errorMessage = e.toString().toLowerCase();
+        
+        // Проверяем, является ли ошибка связанной с неправильным паролем/данными
+        if (errorMessage.contains('password') || 
+            errorMessage.contains('пароль') || 
+            errorMessage.contains('unauthorized') ||
+            errorMessage.contains('invalid credentials') ||
+            errorMessage.contains('неверный') ||
+            errorMessage.contains('401') ||
+            errorMessage.contains('403') ||
+            errorMessage.contains('неправильный') ||
+            errorMessage.contains('authentication failed') ||
+            errorMessage.contains('login failed')) {
+          // Показываем красивую модальку для ошибки пароля только если контекст доступен
+          if (mounted) {
+            _showErrorDialog(
+              "Неверный пароль",
+              "Пароль, который вы ввели, не соответствует номеру телефона. Пожалуйста, проверьте правильность ввода и повторите попытку."
+            );
+          }
+        } else {
+          // Для других ошибок показываем обычное сообщение
+          setState(() {
+            _errorMessage = 'Ошибка входа. Проверьте подключение к интернету или попробуйте позже.';
+          });
+        }
       }
     } finally {
       if (mounted) {
@@ -124,6 +256,7 @@ class _LoginPageState extends State<LoginPage> {
                 const SizedBox(height: 16),
                 TextField(
                   controller: _passwordController,
+                  focusNode: _passwordFocusNode,
                   obscureText: _obscurePassword,
                   decoration: InputDecoration(
                     hintText: "Пароль",
@@ -146,9 +279,11 @@ class _LoginPageState extends State<LoginPage> {
                               : Icons.visibility,
                           color: Colors.grey),
                       onPressed: () {
-                        setState(() {
-                          _obscurePassword = !_obscurePassword;
-                        });
+                        if (mounted) {
+                          setState(() {
+                            _obscurePassword = !_obscurePassword;
+                          });
+                        }
                       },
                     ),
                   ),
@@ -252,5 +387,14 @@ class _LoginPageState extends State<LoginPage> {
         ),
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    // Dispose всех ресурсов
+    _phoneController.dispose();
+    _passwordController.dispose();
+    _passwordFocusNode.dispose();
+    super.dispose();
   }
 }

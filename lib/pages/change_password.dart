@@ -102,7 +102,7 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: const Color(0xff183B4E).withOpacity(0.05),
+                  color: const Color(0xff183B4E).withValues(alpha: 0.05),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Row(

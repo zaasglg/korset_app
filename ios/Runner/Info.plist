@@ -2,6 +2,8 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>CADisableMinimumFrameDurationOnPhone</key>
+	<true/>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
@@ -29,10 +31,18 @@
 		<key>NSAllowsArbitraryLoads</key>
 		<true/>
 	</dict>
-	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>This app needs access to location when open to show your position on the map.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>This app needs access to camera for video playback</string>
 	<key>NSLocationAlwaysUsageDescription</key>
 	<string>This app needs access to location when in the background to show your position on the map.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>This app needs access to location when open to show your position on the map.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>This app needs access to microphone for video playback</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>This app needs access to photo library for video playback</string>
+	<key>UIApplicationSupportsIndirectInputEvents</key>
+	<true/>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>fetch</string>
@@ -55,15 +65,12 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
-	<key>CADisableMinimumFrameDurationOnPhone</key>
-	<true/>
-	<key>UIApplicationSupportsIndirectInputEvents</key>
-	<true/>
-	<key>NSMicrophoneUsageDescription</key>
-	<string>This app needs access to microphone for video playback</string>
+
 	<key>NSCameraUsageDescription</key>
-	<string>This app needs access to camera for video playback</string>
+	<string>Для загрузки фотографии в профиль. Камера нужна, чтобы вы могли сделать снимок прямо из приложения.</string>
+
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>This app needs access to photo library for video playback</string>
+	<string>Для выбора изображения профиля из вашей фотогалереи.</string>
+
 </dict>
 </plist>

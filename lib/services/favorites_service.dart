@@ -45,10 +45,11 @@ class FavoritesService {
   }
 
   // Удалить из избранного
-  static Future<bool> removeFromFavorites(String itemId) async {
+  static Future<bool> removeFromFavorites(dynamic itemId) async {
     try {
       final favorites = await getFavorites();
-      final updatedFavorites = favorites.where((item) => item.id != itemId).toList();
+      final idString = itemId.toString();
+      final updatedFavorites = favorites.where((item) => item.id != idString).toList();
       
       await _saveFavorites(updatedFavorites);
       return true;
@@ -59,13 +60,43 @@ class FavoritesService {
   }
 
   // Проверить, находится ли объявление в избранном
-  static Future<bool> isFavorite(String itemId) async {
+  static Future<bool> isFavorite(dynamic itemId) async {
     try {
       final favorites = await getFavorites();
-      return favorites.any((item) => item.id == itemId);
+      final idString = itemId.toString();
+      return favorites.any((item) => item.id == idString);
     } catch (e) {
       print('Error checking if favorite: $e');
       return false;
+    }
+  }
+
+  // Переключить состояние избранного
+  static Future<bool> toggleFavorite(dynamic productId, bool currentStatus) async {
+    try {
+      final idString = productId.toString();
+      
+      if (currentStatus) {
+        // Если сейчас в избранном, удаляем
+        await removeFromFavorites(idString);
+        return false;
+      } else {
+        // Если не в избранном, добавляем (нужно создать FavoriteItem)
+        // Для простоты создаем базовый FavoriteItem
+        final favoriteItem = FavoriteItem(
+          id: idString,
+          title: 'Product $idString',
+          location: '',
+          price: '',
+          image: '',
+          addedAt: DateTime.now(),
+        );
+        await addToFavorites(favoriteItem);
+        return true;
+      }
+    } catch (e) {
+      print('Error toggling favorite: $e');
+      return currentStatus; // Возвращаем текущее состояние при ошибке
     }
   }
 

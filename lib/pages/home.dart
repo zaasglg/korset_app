@@ -1,19 +1,28 @@
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_iconly/flutter_iconly.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:keyboard_dismisser/keyboard_dismisser.dart';
-import 'package:korset_app/auth/register.dart';
 import 'package:korset_app/pages/catalog.dart';
 import 'package:korset_app/pages/detail.dart';
 import 'package:korset_app/pages/secure_deals.dart';
 import 'package:korset_app/pages/map_listings.dart';
 import 'package:korset_app/pages/turbo_sales.dart';
 import 'package:korset_app/pages/online_stores.dart';
+import 'package:korset_app/services/image_url_helper.dart';
 import 'package:korset_app/pages/category_page.dart';
+import 'package:korset_app/pages/story_viewer.dart';
+import 'package:korset_app/pages/create_story_page.dart';
 import 'package:korset_app/models/category.dart';
 import 'package:korset_app/models/city.dart';
+import 'package:korset_app/models/product.dart';
 import 'package:korset_app/services/category_service.dart';
 import 'package:korset_app/services/cities_service.dart';
+import 'package:korset_app/services/auth_service.dart';
+import 'package:korset_app/services/product_service.dart';
+import 'package:korset_app/services/favorites_service.dart';
+import 'package:korset_app/services/story_service.dart';
+import 'package:korset_app/models/story.dart';
+import 'package:korset_app/components/product_image_widget.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -28,80 +37,26 @@ class _HomePageState extends State<HomePage> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   final CategoryService _categoryService = CategoryService();
   final CitiesService _citiesService = CitiesService();
+  final ProductService _productService = ProductService();
 
   // Add selected tab index
   int _selectedTabIndex = 0;
 
   // Add tab titles
   final List<String> _tabTitles = [
-    "Популярные",
-    "Свежие",
     "Рекомендации",
+    "Свежие",
+    "Магазины",
   ];
 
-  // Sample products data
-  final List<Map<String, dynamic>> _allProducts = [
-    {
-      'image': "assets/videos/video.mp4",
-      'title': "Продам 3к кв в кирпичном доме",
-      'location': "Туркестан",
-      'price': "17 300 000 ₸",
-      'category': 'Недвижимость',
-      'description': "Просторная 3-комнатная квартира в кирпичном доме. Отличное состояние, современный ремонт.",
-      'seller': "Erdaulet",
-      'sellerSince': "2023",
-    },
-    {
-      'image': "assets/images/image.webp",
-      'title': "iPhone 15 Pro Max 256GB",
-      'location': "Алматы",
-      'price': "650 000 ₸",
-      'category': 'Электроника',
-      'description': "Новый iPhone 15 Pro Max в идеальном состоянии. Все документы в наличии.",
-      'seller': "Мурат",
-      'sellerSince': "2022",
-    },
-    {
-      'image': "assets/images/image.webp",
-      'title': "Toyota Camry 2020",
-      'location': "Астана",
-      'price': "12 500 000 ₸",
-      'category': 'Транспорт',
-      'description': "Автомобиль в отличном состоянии, один владелец, все ТО пройдены.",
-      'seller': "Асылжан",
-      'sellerSince': "2021",
-    },
-    {
-      'image': "assets/images/image.webp",
-      'title': "Зимняя куртка Nike",
-      'location': "Шымкент",
-      'price': "35 000 ₸",
-      'category': 'Одежда',
-      'description': "Теплая зимняя куртка Nike, размер L, новая с этикетками.",
-      'seller': "Айгерим",
-      'sellerSince': "2023",
-    },
-    {
-      'image': "assets/images/image.webp",
-      'title': "Игровой ноутбук ASUS",
-      'location': "Алматы",
-      'price': "450 000 ₸",
-      'category': 'Электроника',
-      'description': "Мощный игровой ноутбук для работы и развлечений. RTX 3060, 16GB RAM.",
-      'seller': "Данияр",
-      'sellerSince': "2022",
-    },
-    {
-      'image': "assets/images/image.webp",
-      'title': "Студия в новостройке",
-      'location': "Астана",
-      'price': "8 500 000 ₸",
-      'category': 'Недвижимость',
-      'description': "Уютная студия в новом жилом комплексе с современным ремонтом.",
-      'seller': "Жанар",
-      'sellerSince': "2023",
-    },
-  ];
+  // Products data from API
+  List<Product> _allProducts = [];
+  bool _productsLoading = false;
+  String? _productsError;
+
+  // Favorites data from API
+  Set<int> _favoriteProductIds = <int>{};
+  bool _favoritesLoading = false;
 
   // Categories list
   List<Category> _categories = [];
@@ -114,22 +69,30 @@ class _HomePageState extends State<HomePage> {
   bool _citiesLoading = false;
   String? _citiesError;
 
+  // Authentication state
+  bool _isAuthenticated = false;
+
+  // Real Stories data from API
+  List<Story> _realStories = [];
+  bool _storiesLoading = false;
+  String? _storiesError;
+
+  // Mock Stories data (fallback)
+  final List<Map<String, dynamic>> _storiesData = [];
+
   // No default categories - we'll rely on the API
 
   // Get products for current tab
-  List<Map<String, dynamic>> _getProductsForTab() {
+  List<Product> _getProductsForTab() {
     switch (_selectedTabIndex) {
-      case 0: // Популярные
-        return _allProducts.take(4).toList();
+      case 0: // Рекомендации
+        return _allProducts;
       case 1: // Свежие
-        return _allProducts.reversed.take(4).toList();
-      case 2: // Рекомендации
-        return _allProducts.where((product) => 
-          product['category'] == 'Недвижимость' || 
-          product['category'] == 'Электроника'
-        ).take(4).toList();
+        return _allProducts.reversed.toList();
+      case 2: // Магазины
+        return []; // Пустой список, так как здесь будут магазины
       default:
-        return _allProducts.take(4).toList();
+        return _allProducts;
     }
   }
 
@@ -138,6 +101,53 @@ class _HomePageState extends State<HomePage> {
     super.initState();
     _fetchCategories();
     _fetchCities();
+    _fetchProducts();
+    _fetchFavorites();
+    _fetchStories();
+    _checkAuthentication();
+  }
+
+  Future<void> _fetchProducts() async {
+    try {
+      setState(() {
+        _productsLoading = true;
+        _productsError = null;
+      });
+
+      final products = await _productService.getProducts(limit: 100);
+
+      if (mounted) {
+        setState(() {
+          _allProducts = products;
+          _productsLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _allProducts = [];
+          _productsLoading = false;
+          _productsError = 'Ошибка загрузки объявлений: ${e.toString()}';
+        });
+      }
+      print('Error fetching products: $e');
+    }
+  }
+
+  Future<void> _checkAuthentication() async {
+    final isAuthenticated = await AuthService.isAuthenticated();
+    if (mounted) {
+      setState(() {
+        _isAuthenticated = isAuthenticated;
+      });
+    }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Проверяем авторизацию при каждом возврате на страницу
+    _checkAuthentication();
   }
 
   Future<void> _fetchCategories() async {
@@ -185,7 +195,8 @@ class _HomePageState extends State<HomePage> {
           _cities = cities;
           _citiesLoading = false;
           if (cities.isEmpty) {
-            _citiesError = 'Не удалось загрузить города. Проверьте подключение к интернету.';
+            _citiesError =
+                'Не удалось загрузить города. Проверьте подключение к интернету.';
           }
         });
       }
@@ -198,6 +209,160 @@ class _HomePageState extends State<HomePage> {
         });
       }
       print('Error fetching cities: $e');
+    }
+  }
+
+  Future<void> _fetchFavorites() async {
+    try {
+      setState(() {
+        _favoritesLoading = true;
+      });
+
+      final favoriteItems = await FavoritesService.getFavorites();
+
+      if (mounted) {
+        setState(() {
+          _favoriteProductIds = favoriteItems
+              .map((item) => int.tryParse(item.id) ?? 0)
+              .where((id) => id > 0)
+              .toSet();
+          _favoritesLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _favoritesLoading = false;
+        });
+      }
+      print('Error fetching favorites: $e');
+    }
+  }
+
+  Future<void> _fetchStories() async {
+    try {
+      setState(() {
+        _storiesLoading = true;
+        _storiesError = null;
+      });
+
+      final stories = await StoryService.getStories();
+
+      if (mounted) {
+        setState(() {
+          _realStories = stories;
+          _storiesLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _realStories = [];
+          _storiesLoading = false;
+          _storiesError = 'Ошибка загрузки историй: ${e.toString()}';
+        });
+      }
+      print('Error fetching stories: $e');
+    }
+  }
+
+  Future<void> _toggleFavorite(int productId) async {
+    try {
+      final isCurrentlyFavorite = _favoriteProductIds.contains(productId);
+
+      // Optimistically update UI
+      setState(() {
+        if (isCurrentlyFavorite) {
+          _favoriteProductIds.remove(productId);
+        } else {
+          _favoriteProductIds.add(productId);
+        }
+      });
+
+      // Make API call
+      final newFavoriteStatus =
+          await FavoritesService.toggleFavorite(productId, isCurrentlyFavorite);
+
+      // Verify the state matches the API response
+      if (mounted) {
+        setState(() {
+          if (newFavoriteStatus) {
+            _favoriteProductIds.add(productId);
+          } else {
+            _favoriteProductIds.remove(productId);
+          }
+        });
+      }
+    } catch (e) {
+      // Revert optimistic update on error
+      if (mounted) {
+        setState(() {
+          if (_favoriteProductIds.contains(productId)) {
+            _favoriteProductIds.remove(productId);
+          } else {
+            _favoriteProductIds.add(productId);
+          }
+        });
+      }
+
+      // Show error message
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Ошибка при обновлении избранного: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      print('Error toggling favorite: $e');
+    }
+  }
+
+  // Конвертируем реальные истории в формат для StoryViewerPage, группируя по авторам
+  List<Map<String, dynamic>> _convertStoriesToMockFormat(List<Story> stories) {
+    final Map<String, Map<String, dynamic>> userStoriesMap = {};
+    for (final story in stories) {
+      final userKey = story.userName;
+      final avatar = (story.userAvatar != null && story.userAvatar!.isNotEmpty)
+          ? (story.userAvatar!.startsWith('http')
+              ? story.userAvatar!
+              : 'https://videopokaz.kz/storage/${story.userAvatar!}')
+          : 'assets/icons/guest.png';
+      final imageUrl = story.mediaUrl != null
+          ? (story.mediaUrl!.startsWith('http')
+              ? story.mediaUrl!
+              : 'https://videopokaz.kz/storage/${story.mediaUrl!}')
+          : 'assets/images/image.webp';
+      final storyItem = {
+        'image': imageUrl,
+        'time': _getTimeAgo(story.createdAt),
+        'text': story.content ?? '',
+        'isVideo': story.mediaType == 'video',
+      };
+      if (userStoriesMap.containsKey(userKey)) {
+        userStoriesMap[userKey]!['stories'].add(storyItem);
+      } else {
+        userStoriesMap[userKey] = {
+          'name': userKey,
+          'avatar': avatar,
+          'stories': [storyItem],
+        };
+      }
+    }
+    return userStoriesMap.values.toList();
+  }
+
+  // Получаем время в формате "Xч назад"
+  String _getTimeAgo(DateTime dateTime) {
+    final now = DateTime.now();
+    final difference = now.difference(dateTime);
+
+    if (difference.inMinutes < 60) {
+      return '${difference.inMinutes}м';
+    } else if (difference.inHours < 24) {
+      return '${difference.inHours}ч';
+    } else {
+      return '${difference.inDays}д';
     }
   }
 
@@ -235,10 +400,10 @@ class _HomePageState extends State<HomePage> {
               ),
             ),
             const SizedBox(height: 24),
-            
+
             // Title
             const Text(
-              'Фильтры',
+              'Филsьтры',
               style: TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.w600,
@@ -246,7 +411,7 @@ class _HomePageState extends State<HomePage> {
               ),
             ),
             const SizedBox(height: 24),
-            
+
             // City filter
             const Text(
               'Город',
@@ -284,20 +449,24 @@ class _HomePageState extends State<HomePage> {
                           padding: const EdgeInsets.symmetric(vertical: 16),
                           child: Row(
                             children: [
-                              Icon(Icons.error_outline, size: 16, color: Colors.red.shade600),
+                              Icon(Icons.error_outline,
+                                  size: 16, color: Colors.red.shade600),
                               const SizedBox(width: 8),
                               Expanded(
                                 child: Text(
                                   'Ошибка загрузки городов',
-                                  style: TextStyle(color: Colors.red.shade600, fontSize: 14),
+                                  style: TextStyle(
+                                      color: Colors.red.shade600, fontSize: 14),
                                 ),
                               ),
                               TextButton(
                                 onPressed: _fetchCities,
                                 style: TextButton.styleFrom(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 8, vertical: 4),
                                   minimumSize: Size.zero,
-                                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                  tapTargetSize:
+                                      MaterialTapTargetSize.shrinkWrap,
                                 ),
                                 child: Text(
                                   'Повторить',
@@ -319,7 +488,8 @@ class _HomePageState extends State<HomePage> {
                           ),
                           isExpanded: true,
                           underline: const SizedBox(),
-                          icon: Icon(Icons.keyboard_arrow_down, color: Colors.grey[600]),
+                          icon: Icon(Icons.keyboard_arrow_down,
+                              color: Colors.grey[600]),
                           items: _cities.map((city) {
                             return DropdownMenuItem<City>(
                               value: city,
@@ -334,7 +504,7 @@ class _HomePageState extends State<HomePage> {
                         ),
             ),
             const SizedBox(height: 20),
-            
+
             // Category filter
             const Text(
               'Категория',
@@ -375,7 +545,7 @@ class _HomePageState extends State<HomePage> {
               ),
             ),
             const SizedBox(height: 20),
-            
+
             // Price range
             const Text(
               'Цена',
@@ -407,7 +577,8 @@ class _HomePageState extends State<HomePage> {
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(16),
-                        borderSide: const BorderSide(color: Color(0xff183B4E), width: 2),
+                        borderSide: const BorderSide(
+                            color: Color(0xff183B4E), width: 2),
                       ),
                       contentPadding: const EdgeInsets.symmetric(
                         horizontal: 16,
@@ -421,7 +592,8 @@ class _HomePageState extends State<HomePage> {
                 ),
                 const SizedBox(width: 12),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
                     color: Colors.grey[100],
                     borderRadius: BorderRadius.circular(8),
@@ -455,7 +627,8 @@ class _HomePageState extends State<HomePage> {
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(16),
-                        borderSide: const BorderSide(color: Color(0xff183B4E), width: 2),
+                        borderSide: const BorderSide(
+                            color: Color(0xff183B4E), width: 2),
                       ),
                       contentPadding: const EdgeInsets.symmetric(
                         horizontal: 16,
@@ -470,7 +643,7 @@ class _HomePageState extends State<HomePage> {
               ],
             ),
             const SizedBox(height: 32),
-            
+
             // Buttons
             Row(
               children: [
@@ -515,15 +688,15 @@ class _HomePageState extends State<HomePage> {
                   child: Container(
                     height: 48,
                     decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(14),
-                      color: const Color(0xff183B4E)
-                    ),
+                        borderRadius: BorderRadius.circular(14),
+                        color: const Color(0xff183B4E)),
                     child: ElevatedButton(
                       onPressed: () {
                         // Apply filters logic here
                         // TODO: Implement actual filtering using:
                         // _selectedCity, _selectedCategory, _minPrice, _maxPrice
-                        print('Applying filters: City: $_selectedCity, Category: $_selectedCategory, Price: $_minPrice - $_maxPrice');
+                        print(
+                            'Applying filters: City: $_selectedCity, Category: $_selectedCategory, Price: $_minPrice - $_maxPrice');
                         Navigator.pop(context);
                       },
                       style: ElevatedButton.styleFrom(
@@ -567,13 +740,12 @@ class _HomePageState extends State<HomePage> {
               child: SafeArea(
                 child: Row(
                   children: [
-
                     // Поле поиска
                     Expanded(
                       child: Container(
                         height: 38,
                         decoration: BoxDecoration(
-                          color: Colors.grey.withOpacity(0.2),
+                          color: Colors.grey.withValues(alpha: 0.2),
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Row(
@@ -609,7 +781,7 @@ class _HomePageState extends State<HomePage> {
                     ),
 
                     const SizedBox(width: 12),
-                    
+
                     // Правая иконка (фильтр/настройки)
                     GestureDetector(
                       onTap: () {
@@ -624,8 +796,6 @@ class _HomePageState extends State<HomePage> {
                         ),
                       ),
                     ),
-
-                    
                   ],
                 ),
               ),
@@ -647,46 +817,119 @@ class _HomePageState extends State<HomePage> {
                       Container(
                         margin: const EdgeInsets.only(top: 24.0, left: 10),
                         height: 100,
-                        child: ListView(
-                          scrollDirection: Axis.horizontal,
-                          children: [
-                            _buildAddStoryButton(context),
-                            const SizedBox(width: 12),
-                            _buildStoryCircle(
-                              image: "assets/icons/guest.png",
-                              label: "ERDAULET",
-                              onTap: () {
-                                showDialog(
-                                  context: context,
-                                  builder: (BuildContext context) {
-                                    return CupertinoAlertDialog(
-                                      title: const Text("Авторизация"),
-                                      content: const Text(
-                                          "Пожалуйста, авторизуйтесь, чтобы продолжить."),
-                                      actions: [
-                                        CupertinoDialogAction(
-                                          child: const Text("Отмена"),
-                                          onPressed: () {
-                                            Navigator.of(context).pop();
-                                          },
-                                        ),
-                                        CupertinoDialogAction(
-                                          child: const Text("Войти"),
-                                          onPressed: () {
-                                            Navigator.of(context).push(
+                        child: _storiesLoading
+                            ? const Center(
+                                child: CircularProgressIndicator(
+                                  color: Color(0xFF183B4E),
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : ListView(
+                                scrollDirection: Axis.horizontal,
+                                children: [
+                                  if (_isAuthenticated) ...[
+                                    _buildAddStoryButton(
+                                        context, _fetchStories),
+                                    const SizedBox(width: 12),
+                                  ],
+
+                                  // Build story circles from real API data
+                                  if (_realStories.isNotEmpty) ...[
+                                    ..._convertStoriesToMockFormat(_realStories)
+                                        .asMap()
+                                        .entries
+                                        .map((entry) {
+                                      final index = entry.key;
+                                      final storyGroup = entry.value;
+                                      return Row(
+                                        children: [
+                                          _buildStoryCircle(
+                                            image: storyGroup['avatar'],
+                                            label: storyGroup['name'],
+                                            onTap: () {
+                                              Navigator.push(
+                                                context,
                                                 MaterialPageRoute(
-                                                    builder: (context) =>
-                                                        const RegisterPage())); // Закрыть диалог
-                                          },
-                                        ),
-                                      ],
-                                    );
-                                  },
-                                );
-                              },
-                            ),
-                          ],
-                        ),
+                                                  builder: (context) =>
+                                                      StoryViewerPage(
+                                                    stories:
+                                                        _convertStoriesToMockFormat(
+                                                            _realStories),
+                                                    initialIndex: index,
+                                                  ),
+                                                ),
+                                              );
+                                            },
+                                          ),
+                                          if (index <
+                                              _convertStoriesToMockFormat(
+                                                          _realStories)
+                                                      .length -
+                                                  1)
+                                            const SizedBox(width: 12),
+                                        ],
+                                      );
+                                    }),
+                                  ] else if (_storiesError == null) ...[
+                                    // Показываем mock данные если нет реальных историй
+                                    ..._storiesData
+                                        .asMap()
+                                        .entries
+                                        .map((entry) {
+                                      final index = entry.key;
+                                      final story = entry.value;
+                                      return Row(
+                                        children: [
+                                          _buildStoryCircle(
+                                            image: story['avatar'],
+                                            label: story['name'],
+                                            onTap: () {
+                                              Navigator.push(
+                                                context,
+                                                MaterialPageRoute(
+                                                  builder: (context) =>
+                                                      StoryViewerPage(
+                                                    stories: _storiesData,
+                                                    initialIndex: index,
+                                                  ),
+                                                ),
+                                              );
+                                            },
+                                          ),
+                                          if (index < _storiesData.length - 1)
+                                            const SizedBox(width: 12),
+                                        ],
+                                      );
+                                    }),
+                                  ],
+
+                                  // Показываем ошибку если есть
+                                  if (_storiesError != null &&
+                                      _realStories.isEmpty)
+                                    Container(
+                                      padding: const EdgeInsets.all(16),
+                                      child: Column(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        children: [
+                                          Icon(
+                                            Icons.error_outline,
+                                            color: Colors.grey[400],
+                                            size: 24,
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            'Ошибка загрузки',
+                                            style: TextStyle(
+                                              color: Colors.grey[600],
+                                              fontSize: 12,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                ],
+                              ),
                       ),
 
                       const SizedBox(
@@ -707,9 +950,11 @@ class _HomePageState extends State<HomePage> {
                             ),
                           ),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 8),
                             decoration: BoxDecoration(
-                              color: const Color(0xFF183B4E).withOpacity(0.08),
+                              color: const Color(0xFF183B4E)
+                                  .withValues(alpha: 0.08),
                               borderRadius: BorderRadius.circular(20),
                             ),
                             child: GestureDetector(
@@ -749,7 +994,8 @@ class _HomePageState extends State<HomePage> {
                               : _errorMessage != null
                                   ? Center(
                                       child: Column(
-                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
                                         children: [
                                           Text(
                                             _errorMessage!,
@@ -812,7 +1058,8 @@ class _HomePageState extends State<HomePage> {
                                       Navigator.push(
                                         context,
                                         MaterialPageRoute(
-                                          builder: (context) => const SecureDealsPage(),
+                                          builder: (context) =>
+                                              const SecureDealsPage(),
                                         ),
                                       );
                                     },
@@ -831,7 +1078,8 @@ class _HomePageState extends State<HomePage> {
                                       Navigator.push(
                                         context,
                                         MaterialPageRoute(
-                                          builder: (context) => const MapListingsPage(),
+                                          builder: (context) =>
+                                              const MapListingsPage(),
                                         ),
                                       );
                                     },
@@ -855,7 +1103,8 @@ class _HomePageState extends State<HomePage> {
                                       Navigator.push(
                                         context,
                                         MaterialPageRoute(
-                                          builder: (context) => const TurboSalesPage(),
+                                          builder: (context) =>
+                                              const TurboSalesPage(),
                                         ),
                                       );
                                     },
@@ -874,7 +1123,8 @@ class _HomePageState extends State<HomePage> {
                                       Navigator.push(
                                         context,
                                         MaterialPageRoute(
-                                          builder: (context) => const OnlineStoresPage(),
+                                          builder: (context) =>
+                                              const OnlineStoresPage(),
                                         ),
                                       );
                                     },
@@ -905,8 +1155,8 @@ class _HomePageState extends State<HomePage> {
                     children: [
                       // Custom Tab Bar
                       Container(
-                        height: 32,
-                        margin: const EdgeInsets.only(bottom: 16),
+                        height: 44,
+                        margin: const EdgeInsets.only(bottom: 20),
                         child: ListView.builder(
                           scrollDirection: Axis.horizontal,
                           itemCount: _tabTitles.length,
@@ -919,30 +1169,19 @@ class _HomePageState extends State<HomePage> {
                                 });
                               },
                               child: Container(
-                                margin: const EdgeInsets.only(right: 24),
-                                decoration: BoxDecoration(
-                                  border: Border(
-                                    bottom: BorderSide(
-                                      color: isSelected
-                                          ? const Color(0xff183B4E)
-                                          : Colors.transparent,
-                                      width: 2,
-                                    ),
-                                  ),
-                                ),
+                                margin: const EdgeInsets.only(right: 32),
                                 child: Padding(
-                                  padding:
-                                      const EdgeInsets.symmetric(horizontal: 4),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 8, vertical: 8),
                                   child: Text(
-                                    _tabTitles[index],
+                                    _tabTitles[index].toUpperCase(),
                                     style: TextStyle(
-                                      fontSize: 15,
-                                      fontWeight: isSelected
-                                          ? FontWeight.w700
-                                          : FontWeight.w500,
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.w600,
                                       color: isSelected
-                                          ? const Color(0xff183B4E)
-                                          : const Color(0xff2F2D2C),
+                                          ? Colors.black
+                                          : Colors.black.withValues(alpha: 0.4),
+                                      letterSpacing: 0.5,
                                     ),
                                   ),
                                 ),
@@ -952,142 +1191,136 @@ class _HomePageState extends State<HomePage> {
                         ),
                       ),
 
-                      const SizedBox(
-                        height: 10.0,
-                      ),
-
-                      Text(
-                        _tabTitles[_selectedTabIndex].toUpperCase(),
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w700,
-                          fontSize: 18,
-                          color: Color(0xff183B4E),
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-                      GridView.builder(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        gridDelegate:
-                            const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 2,
-                          childAspectRatio: 0.7,
-                          crossAxisSpacing: 15,
-                          mainAxisSpacing: 15,
-                        ),
-                        itemCount: _getProductsForTab().length,
-                        itemBuilder: (context, index) {
-                          final product = _getProductsForTab()[index];
-                          return _buildProductCard(
-                            image: product['image'],
-                            title: product['title'],
-                            location: product['location'],
-                            price: product['price'],
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => DetailPage(
-                                    product: product,
-                                  ),
-                                ),
-                              );
-                            },
-                          );
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-
-                const SizedBox(height: 30.0),
-
-                // MARK: - Stores Section
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 20.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text(
-                            "Магазины",
-                            style: TextStyle(
-                              fontFamily: "Atyp",
-                              fontWeight: FontWeight.w700,
-                              fontSize: 24,
-                              color: Color(0xFF1A1A1A),
-                            ),
-                          ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF183B4E).withOpacity(0.08),
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: GestureDetector(
-                              onTap: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => const OnlineStoresPage(),
-                                  ),
+                      // Показываем товары или магазины в зависимости от выбранного таба
+                      _selectedTabIndex == 2
+                          ? // Для таба "Магазины" показываем сетку магазинов
+                          GridView.builder(
+                              shrinkWrap: true,
+                              physics: const NeverScrollableScrollPhysics(),
+                              gridDelegate:
+                                  const SliverGridDelegateWithFixedCrossAxisCount(
+                                crossAxisCount: 2,
+                                childAspectRatio: 0.85,
+                                crossAxisSpacing: 15,
+                                mainAxisSpacing: 15,
+                              ),
+                              itemCount: 6, // Показываем 6 магазинов в сетке
+                              itemBuilder: (context, index) {
+                                final stores = [
+                                  {
+                                    "image": "assets/images/image.webp",
+                                    "name": "TechnoStore",
+                                    "rating": 5,
+                                    "adsCount": 127
+                                  },
+                                  {
+                                    "image": "assets/images/image.webp",
+                                    "name": "FashionHub",
+                                    "rating": 4,
+                                    "adsCount": 89
+                                  },
+                                  {
+                                    "image": null,
+                                    "name": "AutoParts KZ",
+                                    "rating": 5,
+                                    "adsCount": 156
+                                  },
+                                  {
+                                    "image": null,
+                                    "name": "BeautyWorld",
+                                    "rating": 4,
+                                    "adsCount": 73
+                                  },
+                                  {
+                                    "image": null,
+                                    "name": "SportZone",
+                                    "rating": 5,
+                                    "adsCount": 94
+                                  },
+                                  {
+                                    "image": "assets/images/image.webp",
+                                    "name": "HomeDecor",
+                                    "rating": 4,
+                                    "adsCount": 52
+                                  },
+                                ];
+                                final store = stores[index];
+                                return _buildGridStoreCard(
+                                  image: store["image"] as String?,
+                                  name: store["name"] as String,
+                                  rating: store["rating"] as int,
+                                  adsCount: store["adsCount"] as int,
                                 );
                               },
-                              child: const Text(
-                                "Все",
-                                style: TextStyle(
-                                  fontFamily: "Atyp",
-                                  color: Color(0xFF183B4E),
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 14,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      SizedBox(
-                        height: 240,
-                        child: ListView(
-                          scrollDirection: Axis.horizontal,
-                          padding: const EdgeInsets.symmetric(horizontal: 4),
-                          children: [
-                            _buildStoreCard(
-                              image: "assets/images/image.webp",
-                              name: "TechnoStore",
-                              rating: 5,
-                              adsCount: 127,
-                            ),
-                            _buildStoreCard(
-                              image: "assets/images/image.webp",
-                              name: "FashionHub",
-                              rating: 4,
-                              adsCount: 89,
-                            ),
-                            _buildStoreCard(
-                              image: null,
-                              name: "AutoParts KZ",
-                              rating: 5,
-                              adsCount: 156,
-                            ),
-                            _buildStoreCard(
-                              image: null,
-                              name: "BeautyWorld",
-                              rating: 4,
-                              adsCount: 73,
-                            ),
-                            _buildStoreCard(
-                              image: null,
-                              name: "SportZone",
-                              rating: 5,
-                              adsCount: 94,
-                            ),
-                          ],
-                        ),
-                      ),
+                            )
+                          : // Для остальных табов показываем товары
+                          _productsLoading
+                              ? const Center(
+                                  child: CircularProgressIndicator(
+                                    color: Color(0xFF183B4E),
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : _productsError != null
+                                  ? Center(
+                                      child: Column(
+                                        children: [
+                                          Text(
+                                            _productsError!,
+                                            style: const TextStyle(
+                                              color: Colors.grey,
+                                              fontSize: 14,
+                                            ),
+                                            textAlign: TextAlign.center,
+                                          ),
+                                          const SizedBox(height: 10),
+                                          TextButton(
+                                            onPressed: _fetchProducts,
+                                            child: const Text(
+                                              'Повторить',
+                                              style: TextStyle(
+                                                color: Color(0xFF183B4E),
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    )
+                                  : GridView.builder(
+                                      shrinkWrap: true,
+                                      physics:
+                                          const NeverScrollableScrollPhysics(),
+                                      gridDelegate:
+                                          const SliverGridDelegateWithFixedCrossAxisCount(
+                                        crossAxisCount: 2,
+                                        childAspectRatio: 0.60,
+                                        crossAxisSpacing: 7,
+                                        mainAxisSpacing: 7,
+                                      ),
+                                      itemCount: _getProductsForTab().length,
+                                      itemBuilder: (context, index) {
+                                        final product =
+                                            _getProductsForTab()[index];
+                                        return _buildProductCard(
+                                          product: product,
+                                          favoriteProductIds:
+                                              _favoriteProductIds,
+                                          onToggleFavorite: _toggleFavorite,
+                                          onTap: () {
+                                            Navigator.push(
+                                              context,
+                                              MaterialPageRoute(
+                                                builder: (context) =>
+                                                    DetailPage(
+                                                  productId: product.id,
+                                                ),
+                                              ),
+                                            );
+                                          },
+                                        );
+                                      },
+                                    ),
                     ],
                   ),
                 ),
@@ -1121,38 +1354,35 @@ class _HomePageState extends State<HomePage> {
               decoration: BoxDecoration(
                 color: category.bgColor,
                 borderRadius: BorderRadius.circular(20),
-                boxShadow: [
-                  BoxShadow(
-                    color: category.bgColor.withOpacity(0.3),
-                    blurRadius: 8,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
               ),
               child: Center(
-                child: category.icon.startsWith('http') 
-                  ? ClipRRect(
-                      borderRadius: BorderRadius.circular(16),
-                      child: Image.network(
-                        category.icon,
-                        width: 40,
-                        height: 40,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) {
-                          return const Icon(
+                child: (category.icon.isNotEmpty &&
+                        category.icon.startsWith('http') &&
+                        Uri.tryParse(category.icon) != null)
+                    ? ClipRRect(
+                        borderRadius: BorderRadius.circular(16),
+                        child: CachedNetworkImage(
+                          imageUrl: category.icon,
+                          width: 40,
+                          height: 40,
+                          fit: BoxFit.cover,
+                          placeholder: (context, url) =>
+                              const CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                          errorWidget: (context, url, error) => const Icon(
                             Icons.category,
                             size: 32,
                             color: Colors.white,
-                          );
-                        },
+                          ),
+                        ),
+                      )
+                    : const Icon(
+                        Icons.category,
+                        size: 32,
+                        color: Colors.white,
                       ),
-                    )
-                  : Image.asset(
-                      category.icon,
-                      width: 40,
-                      height: 40,
-                      fit: BoxFit.contain,
-                    ),
               ),
             ),
             const SizedBox(height: 12),
@@ -1191,30 +1421,72 @@ Widget _buildStoryCircle(
           height: 70,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            gradient: const LinearGradient(
-              colors: [Color(0xff183B4E), Color(0xff56A3E6)],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
+            border: Border.all(
+              color: const Color(0xff56A3E6),
+              width: 2.5,
             ),
-            boxShadow: [
-              BoxShadow(
-                color: const Color(0xff183B4E).withOpacity(0.25),
-                blurRadius: 12,
-                offset: const Offset(0, 6),
-                spreadRadius: 0,
-              ),
-            ],
           ),
           child: Padding(
             padding: const EdgeInsets.all(3.0),
             child: Container(
-              decoration: BoxDecoration(
+              decoration: const BoxDecoration(
                 shape: BoxShape.circle,
-                border: Border.all(color: Colors.white, width: 2),
               ),
-              child: CircleAvatar(
-                backgroundImage: AssetImage(image),
-                radius: 30,
+              child: ClipOval(
+                child: image.startsWith('http')
+                    ? CachedNetworkImage(
+                        imageUrl: image,
+                        width: 60,
+                        height: 60,
+                        fit: BoxFit.cover,
+                        placeholder: (context, url) => Container(
+                          width: 60,
+                          height: 60,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: Colors.grey[300],
+                          ),
+                          child: Icon(
+                            Icons.person,
+                            color: Colors.grey[600],
+                            size: 30,
+                          ),
+                        ),
+                        errorWidget: (context, url, error) => Container(
+                          width: 60,
+                          height: 60,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: Colors.grey[300],
+                          ),
+                          child: Icon(
+                            Icons.person,
+                            color: Colors.grey[600],
+                            size: 30,
+                          ),
+                        ),
+                      )
+                    : Image.asset(
+                        image,
+                        width: 60,
+                        height: 60,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) {
+                          return Container(
+                            width: 60,
+                            height: 60,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: Colors.grey[300],
+                            ),
+                            child: Icon(
+                              Icons.person,
+                              color: Colors.grey[600],
+                              size: 30,
+                            ),
+                          );
+                        },
+                      ),
               ),
             ),
           ),
@@ -1222,7 +1494,104 @@ Widget _buildStoryCircle(
       ),
       const SizedBox(height: 8),
       Text(
-        label,
+        label.length > 12 ? '${label.substring(0, 10)}...' : label,
+        style: const TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+          color: Color(0xff1A1A1A),
+        ),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
+    ],
+  );
+}
+
+// --- Real Story Circle Widget ---
+Widget _buildRealStoryCircle({
+  required Story story,
+  required VoidCallback onTap,
+}) {
+  return Column(
+    children: [
+      GestureDetector(
+        onTap: onTap,
+        child: Container(
+          width: 70,
+          height: 70,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            border: Border.all(
+              color: const Color(0xff56A3E6),
+              width: 2.5,
+            ),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(3.0),
+            child: Container(
+              decoration: const BoxDecoration(
+                shape: BoxShape.circle,
+              ),
+              child: ClipOval(
+                child: story.userAvatar != null &&
+                        story.userAvatar!.isNotEmpty &&
+                        story.userAvatar!.startsWith('http') &&
+                        Uri.tryParse(story.userAvatar!) != null
+                    ? CachedNetworkImage(
+                        imageUrl: story.userAvatar!,
+                        width: 60,
+                        height: 60,
+                        fit: BoxFit.cover,
+                        placeholder: (context, url) => Container(
+                          width: 60,
+                          height: 60,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: Colors.grey[300],
+                          ),
+                          child: Icon(
+                            Icons.person,
+                            color: Colors.grey[600],
+                            size: 30,
+                          ),
+                        ),
+                        errorWidget: (context, url, error) => Container(
+                          width: 60,
+                          height: 60,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: Colors.grey[300],
+                          ),
+                          child: Icon(
+                            Icons.person,
+                            color: Colors.grey[600],
+                            size: 30,
+                          ),
+                        ),
+                      )
+                    : Container(
+                        width: 60,
+                        height: 60,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Colors.grey[300],
+                        ),
+                        child: Icon(
+                          Icons.person,
+                          color: Colors.grey[600],
+                          size: 30,
+                        ),
+                      ),
+              ),
+            ),
+          ),
+        ),
+      ),
+      const SizedBox(height: 8),
+      Text(
+        story.userName.length > 12
+            ? '${story.userName.substring(0, 10)}...'
+            : story.userName,
         style: const TextStyle(
           fontSize: 12,
           fontWeight: FontWeight.w600,
@@ -1236,37 +1605,40 @@ Widget _buildStoryCircle(
 }
 
 // --- Add Story Button ---
-Widget _buildAddStoryButton(BuildContext context) {
+Widget _buildAddStoryButton(BuildContext context, VoidCallback onStoryCreated) {
   return Column(
     children: [
       GestureDetector(
-        onTap: () {
-          // TODO: Add story functionality
+        onTap: () async {
+          // Открываем страницу создания истории
+          final result = await Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const CreateStoryPage(),
+            ),
+          );
+
+          // Если история была создана, обновляем список историй
+          if (result != null) {
+            onStoryCreated(); // Перезагружаем истории
+            print('Story created: $result');
+          }
         },
         child: Container(
           width: 70,
           height: 70,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: Colors.white,
+            color: Colors.grey[200],
             border: Border.all(
-              color: const Color(0xff183B4E), 
-              width: 2.5,
-              strokeAlign: BorderSide.strokeAlignInside,
+              color: Colors.grey[300]!,
+              width: 1.5,
             ),
-            boxShadow: [
-              BoxShadow(
-                color: const Color(0xff183B4E).withOpacity(0.15),
-                blurRadius: 12,
-                offset: const Offset(0, 6),
-                spreadRadius: 0,
-              ),
-            ],
           ),
-          child: const Icon(
-            IconlyBold.camera,
-            color: Color(0xff183B4E),
-            size: 32,
+          child: Icon(
+            Icons.add,
+            color: Colors.grey[600],
+            size: 28,
           ),
         ),
       ),
@@ -1283,94 +1655,82 @@ Widget _buildAddStoryButton(BuildContext context) {
   );
 }
 
-// --- Product Card ---
+// --- Modern Product Card ---
 Widget _buildProductCard({
-  required String image,
-  required String title,
-  required String location,
-  required String price,
+  required Product product,
   required VoidCallback onTap,
+  required Set<int> favoriteProductIds,
+  required Function(int) onToggleFavorite,
 }) {
   return GestureDetector(
     onTap: onTap,
     child: Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.06),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-            spreadRadius: 0,
-          ),
-        ],
+        borderRadius: BorderRadius.circular(1),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Image section
+          // Image section with enhanced design
           Expanded(
-            flex: 3,
+            flex: 2,
             child: Stack(
               children: [
                 ClipRRect(
-                  borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-                  child: AspectRatio(
-                    aspectRatio: 1.2,
-                    child: VideoPlayerWidget(
-                      videoUrl: image, 
+                  borderRadius:
+                      const BorderRadius.vertical(top: Radius.circular(1)),
+                  child: Container(
+                    width: double.infinity,
+                    height: double.infinity,
+                    child: ProductImageWidget(
+                      imageUrl: ImageUrlHelper.isValidPath(product.mainPhoto)
+                          ? ImageUrlHelper.getImageUrl(product.mainPhoto)
+                          : null,
+                      videoUrl: ImageUrlHelper.isValidPath(product.videoUrl)
+                          ? ImageUrlHelper.getVideoUrl(product.videoUrl)
+                          : null,
+                      videoPath: ImageUrlHelper.isValidPath(product.video)
+                          ? ImageUrlHelper.getVideoUrl(product.video)
+                          : null,
+                      fit: BoxFit.cover,
+                      width: double.infinity,
+                      height: double.infinity,
+                      fallbackAsset: 'assets/images/image.webp',
+                      borderRadius:
+                          const BorderRadius.vertical(top: Radius.circular(16)),
                     ),
                   ),
                 ),
-                // Favorite button
+                // Enhanced favorite button
                 Positioned(
-                  top: 12,
-                  right: 12,
-                  child: Container(
-                    width: 32,
-                    height: 32,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.9),
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.1),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: const Icon(
-                      IconlyBroken.heart,
-                      size: 16,
-                      color: Color(0xff183B4E),
-                    ),
-                  ),
-                ),
-                // Price badge
-                Positioned(
-                  bottom: 12,
-                  left: 12,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: const Color(0xff183B4E),
-                      borderRadius: BorderRadius.circular(12),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.2),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: Text(
-                      price,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 12,
+                  top: 10,
+                  right: 10,
+                  child: GestureDetector(
+                    onTap: () => onToggleFavorite(product.id),
+                    child: Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.95),
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.1),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                            spreadRadius: -1,
+                          ),
+                        ],
+                      ),
+                      child: Icon(
+                        favoriteProductIds.contains(product.id)
+                            ? IconlyBold.heart
+                            : IconlyBroken.heart,
+                        size: 18,
+                        color: favoriteProductIds.contains(product.id)
+                            ? const Color(0xFFEF4444)
+                            : const Color(0xFF64748B),
                       ),
                     ),
                   ),
@@ -1378,51 +1738,86 @@ Widget _buildProductCard({
               ],
             ),
           ),
-          // Content section
+
+          // Enhanced content section
           Expanded(
             flex: 2,
-            child: Padding(
-              padding: const EdgeInsets.all(12),
+            child: Container(
+              padding: const EdgeInsets.all(14),
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius:
+                    BorderRadius.vertical(bottom: Radius.circular(16)),
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  // Title
+                  // Location first - with modern icon
                   Text(
-                    title,
+                    product.city.name,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: Color.fromARGB(255, 188, 195, 206),
+                      fontWeight: FontWeight.w600,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+
+                  // Enhanced title
+                  Text(
+                    product.name,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
-                      fontWeight: FontWeight.w600,
-                      fontSize: 14,
-                      color: Color(0xff1A1A1A),
+                      fontWeight: FontWeight.w500,
+                      fontSize: 17,
+                      color: Color(0xFF0F172A),
                       height: 1.3,
+                      letterSpacing: -0.2,
                     ),
                   ),
-                  const SizedBox(height: 8),
-                  // Location
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.location_on_outlined,
-                        size: 14,
-                        color: Colors.grey[500],
-                      ),
-                      const SizedBox(width: 4),
-                      Expanded(
-                        child: Text(
-                          location,
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey[600],
-                            fontWeight: FontWeight.w500,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
+
+                  const SizedBox(height: 4),
+
+                  // Price after title
+                  Text(
+                    product.formattedPrice,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 16,
+                      color: Color(0xFF1E293B),
+                      letterSpacing: -0.2,
+                    ),
                   ),
+
+                  const Spacer(),
+
+                  // Category badge at bottom
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF8B5CF6).withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: const Color(0xFF8B5CF6).withValues(alpha: 0.2),
+                        width: 1,
+                      ),
+                    ),
+                    child: Text(
+                      product.category.name,
+                      style: const TextStyle(
+                        fontSize: 10,
+                        color: Color(0xFF7C3AED),
+                        fontWeight: FontWeight.w600,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+
+                  const Spacer(),
                 ],
               ),
             ),
@@ -1532,13 +1927,6 @@ Widget _buildModernFeatureCard({
       decoration: BoxDecoration(
         color: color,
         borderRadius: BorderRadius.circular(12), // Ровные квадратные края
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.08),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
-          ),
-        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1548,7 +1936,7 @@ Widget _buildModernFeatureCard({
             width: 48,
             height: 48,
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
+              color: Colors.white.withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(
@@ -1575,7 +1963,7 @@ Widget _buildModernFeatureCard({
                 style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w500,
-                  color: Colors.white.withOpacity(0.9),
+                  color: Colors.white.withValues(alpha: 0.9),
                   height: 1.3,
                 ),
               ),
@@ -1600,14 +1988,6 @@ Widget _buildStoreCard({
     decoration: BoxDecoration(
       color: Colors.white,
       borderRadius: BorderRadius.circular(20),
-      boxShadow: [
-        BoxShadow(
-          color: Colors.black.withOpacity(0.06),
-          blurRadius: 16,
-          offset: const Offset(0, 4),
-          spreadRadius: 0,
-        ),
-      ],
     ),
     child: Padding(
       padding: const EdgeInsets.all(20),
@@ -1624,19 +2004,12 @@ Widget _buildStoreCard({
                   shape: BoxShape.circle,
                   gradient: LinearGradient(
                     colors: [
-                      const Color(0xff183B4E).withOpacity(0.1),
-                      const Color(0xff56A3E6).withOpacity(0.1),
+                      const Color(0xff183B4E).withValues(alpha: 0.1),
+                      const Color(0xff56A3E6).withValues(alpha: 0.1),
                     ],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
-                      blurRadius: 12,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
                 ),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(40),
@@ -1677,7 +2050,7 @@ Widget _buildStoreCard({
             ],
           ),
           const SizedBox(height: 16),
-          
+
           // Store name
           Text(
             name,
@@ -1691,7 +2064,7 @@ Widget _buildStoreCard({
             overflow: TextOverflow.ellipsis,
           ),
           const SizedBox(height: 8),
-          
+
           // Rating stars
           if (rating > 0) ...[
             Row(
@@ -1701,20 +2074,19 @@ Widget _buildStoreCard({
                 (i) => Icon(
                   i < rating ? IconlyBold.star : IconlyLight.star,
                   size: 16,
-                  color: i < rating
-                      ? const Color(0xFFFFB800)
-                      : Colors.grey[300],
+                  color:
+                      i < rating ? const Color(0xFFFFB800) : Colors.grey[300],
                 ),
               ),
             ),
             const SizedBox(height: 8),
           ],
-          
+
           // Ads count
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
-              color: const Color(0xff183B4E).withOpacity(0.1),
+              color: const Color(0xff183B4E).withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Text(
@@ -1730,4 +2102,126 @@ Widget _buildStoreCard({
       ),
     ),
   );
+}
+
+// --- Grid Store Card (для таба магазинов) ---
+Widget _buildGridStoreCard({
+  String? image,
+  required String name,
+  required int rating,
+  required int adsCount,
+}) {
+  return Container(
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(16),
+    ),
+    child: Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          // Store avatar
+          Container(
+            width: 60,
+            height: 60,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: LinearGradient(
+                colors: [
+                  const Color(0xff183B4E).withValues(alpha: 0.1),
+                  const Color(0xff56A3E6).withValues(alpha: 0.1),
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(30),
+              child: image != null
+                  ? Image.asset(
+                      image,
+                      width: 60,
+                      height: 60,
+                      fit: BoxFit.cover,
+                    )
+                  : const Icon(
+                      IconlyBold.bag2,
+                      size: 30,
+                      color: Color(0xff183B4E),
+                    ),
+            ),
+          ),
+
+          const SizedBox(height: 12),
+
+          // Store name
+          Text(
+            name,
+            textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+              color: Color(0xFF1A1A1A),
+            ),
+          ),
+
+          const SizedBox(height: 8),
+
+          // Rating and ads count
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Row(
+                children: List.generate(5, (index) {
+                  return Icon(
+                    index < rating ? Icons.star : Icons.star_border,
+                    size: 12,
+                    color: index < rating
+                        ? const Color(0xFFFFB800)
+                        : Colors.grey[300],
+                  );
+                }),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 4),
+
+          Text(
+            "$adsCount объявлений",
+            style: TextStyle(
+              fontSize: 12,
+              color: Colors.grey[600],
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+// Метод для конвертации Product в Map для совместимости с DetailPage
+Map<String, dynamic> _convertProductToMap(Product product) {
+  return {
+    'id': product.id,
+    'image': product.displayImage,
+    'title': product.name,
+    'location': product.city.name,
+    'price': product.formattedPrice,
+    'category': product.category.name,
+    'description': product.description,
+    'seller': 'Продавец', // В API нет информации о продавце
+    'sellerSince': '2023',
+    'address': product.address,
+    'video_url': product.videoUrl,
+    'parameter_values': product.parameterValues,
+    'whatsapp_number': product.whatsappNumber,
+    'phone_number': product.phoneNumber,
+    'ready_for_video_demo': product.readyForVideoDemo,
+    'created_at': product.createdAt.toIso8601String(),
+  };
 }

@@ -187,7 +187,7 @@ class _ReferralPageState extends State<ReferralPage> {
               width: 120,
               height: 120,
               decoration: BoxDecoration(
-                color: const Color(0xff183B4E).withOpacity(0.1),
+                color: const Color(0xff183B4E).withValues(alpha: 0.1),
                 shape: BoxShape.circle,
               ),
               child: const Icon(
@@ -345,7 +345,7 @@ class _ReferralPageState extends State<ReferralPage> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: Colors.black.withValues(alpha: 0.04),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -357,7 +357,7 @@ class _ReferralPageState extends State<ReferralPage> {
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: color.withOpacity(0.1),
+              color: color.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Icon(icon, color: color, size: 24),
@@ -394,7 +394,7 @@ class _ReferralPageState extends State<ReferralPage> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: Colors.black.withValues(alpha: 0.04),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -518,7 +518,7 @@ class _ReferralPageState extends State<ReferralPage> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: Colors.black.withValues(alpha: 0.04),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -562,7 +562,7 @@ class _ReferralPageState extends State<ReferralPage> {
             width: 48,
             height: 48,
             decoration: BoxDecoration(
-              color: const Color(0xff183B4E).withOpacity(0.1),
+              color: const Color(0xff183B4E).withValues(alpha: 0.1),
               shape: BoxShape.circle,
             ),
             child: Center(

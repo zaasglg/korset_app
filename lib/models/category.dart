@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:korset_app/config/api_config.dart';
 
 class Category {
   final int id;
@@ -31,38 +32,6 @@ class Category {
   factory Category.fromJson(Map<String, dynamic> json) {
     // Get category name
     String categoryName = json['name'] ?? '';
-
-    // Determine default icon based on category name (only used if photo is null)
-    String defaultIconPath = 'assets/icons/default.png';
-
-    // Map category names to appropriate icons for fallback
-    if (categoryName.toLowerCase().contains('недвиж') ||
-        categoryName.toLowerCase().contains('квартир') ||
-        categoryName.toLowerCase().contains('аренд')) {
-      defaultIconPath = 'assets/icons/house.png';
-    } else if (categoryName.toLowerCase().contains('транспорт')) {
-      defaultIconPath = 'assets/icons/car.png';
-    } else if (categoryName.toLowerCase().contains('услуг')) {
-      defaultIconPath = 'assets/icons/service.png';
-    } else if (categoryName.toLowerCase().contains('бизнес')) {
-      defaultIconPath = 'assets/icons/business.png';
-    } else if (categoryName.toLowerCase().contains('дет')) {
-      defaultIconPath = 'assets/icons/toys.png';
-    } else if (categoryName.toLowerCase().contains('электрон')) {
-      defaultIconPath = 'assets/icons/electronics.png';
-    } else if (categoryName.toLowerCase().contains('мод') ||
-        categoryName.toLowerCase().contains('стил')) {
-      defaultIconPath = 'assets/icons/fashion.png';
-    } else if (categoryName.toLowerCase().contains('красот') ||
-        categoryName.toLowerCase().contains('здоров')) {
-      defaultIconPath = 'assets/icons/beauty.png';
-    } else if (categoryName.toLowerCase().contains('спорт') ||
-        categoryName.toLowerCase().contains('отдых')) {
-      defaultIconPath = 'assets/icons/sport.png';
-    } else if (categoryName.toLowerCase().contains('дом') ||
-        categoryName.toLowerCase().contains('дач')) {
-      defaultIconPath = 'assets/icons/dacha.png';
-    }
 
     // Generate a color automatically based on the category id or name
     Color autoColor;
@@ -100,8 +69,8 @@ class Category {
       updatedAt: json['updated_at'],
       children: childrenList,
       icon: json['photo'] != null
-          ? 'http://127.0.0.1:8000/storage/${json['photo']}'
-          : defaultIconPath,
+          ? '${ApiConfig.baseUrl}/storage/${json['photo']}'
+          : '', // No default icon, empty string if no photo
       bgColor: autoColor,
     );
   }
