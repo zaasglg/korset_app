@@ -4,6 +4,47 @@ import '../config/api_config.dart';
 import 'api_service.dart';
 
 class AuthService {
+  /// Сброс пароля по номеру телефона
+  static Future<Map<String, dynamic>> resetPassword(String phoneNumber) async {
+    try {
+      print('AuthService: Отправляем запрос на сброс пароля для номера: $phoneNumber');
+      
+      final response = await _apiService.post(
+        '/api/reset-password',
+        body: {'phone_number': phoneNumber},
+      );
+      
+      print('AuthService: Ответ сервера на сброс пароля: $response');
+      
+      // Если ответ null или пустой, считаем что запрос прошел успешно
+      if (response == null) {
+        return {
+          'success': true,
+          'message': 'Новый пароль отправлен на ваш номер телефона'
+        };
+      }
+      
+      // Возвращаем ответ как есть
+      return response;
+    } catch (e) {
+      print('AuthService: Ошибка сброса пароля: $e');
+      
+      // Если это ApiException, проверяем статус код
+      if (e is ApiException) {
+        print('AuthService: ApiException - statusCode: ${e.statusCode}, message: ${e.message}');
+        
+        // Для некоторых статус кодов возвращаем успешный результат
+        if (e.statusCode == 200 || e.statusCode == 201) {
+          return {
+            'success': true,
+            'message': 'Новый пароль отправлен на ваш номер телефона'
+          };
+        }
+      }
+      
+      rethrow;
+    }
+  }
   static const String _tokenKey = 'auth_token';
   static const String _userKey = 'user_data';
 
@@ -387,6 +428,8 @@ class AuthService {
     required String password,
   }) async {
     try {
+      print('AuthService: Попытка входа для номера: $phoneNumber');
+      
       final response = await _apiService.post(
         '/api/login',
         body: {
@@ -394,6 +437,8 @@ class AuthService {
           'password': password,
         },
       );
+      
+      print('AuthService: Ответ сервера на вход: $response');
 
       if (response != null && response['token'] != null) {
         // Save the token and user data
@@ -404,18 +449,21 @@ class AuthService {
         await saveToken(token);
         await saveUser(userData);
 
+        print('AuthService: Успешный вход, токен сохранен');
+
         return {
           'token': token,
           'user': userData,
         };
       } else {
+        print('AuthService: Неверные данные для входа');
         throw ApiException(
-          statusCode: 400,
-          message: 'Invalid credentials',
+          statusCode: 401,
+          message: 'Неверный номер телефона или пароль',
         );
       }
     } catch (e) {
-      print('Login error: $e');
+      print('AuthService: Ошибка входа: $e');
       rethrow;
     }
   }

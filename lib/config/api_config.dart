@@ -2,13 +2,13 @@
 /// New optimized config is in optimized_api_config.dart
 class ApiConfig {
   // Base URL for API
-  static const String baseUrl = 'https://videopokaz.kz';
+  static const String baseUrl = 'https://korset.kz';
 
   // Alternative HTTPS URL (if available)
-  static const String secureBaseUrl = 'https://videopokaz.kz';
+  static const String secureBaseUrl = 'https://korset.kz';
 
   // Local development URL
-  static const String localUrl = 'https://videopokaz.kz';
+  static const String localUrl = 'https://korset.kz';
 
   // API Endpoints
   static const String auth = '/auth';

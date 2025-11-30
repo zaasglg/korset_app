@@ -18,7 +18,8 @@ class ApiService {
   }) async {
     final uri = Uri.parse('${ApiConfig.baseUrl}$endpoint');
     final request = http.MultipartRequest('POST', uri);
-    final headers = await _getHeaders(requiresAuth: requiresAuth);
+    final headers =
+        await _getHeaders(requiresAuth: requiresAuth, isMultipart: true);
     request.headers.addAll(headers);
     request.fields.addAll(fields);
     final multipartFile = await http.MultipartFile.fromPath(
@@ -37,8 +38,14 @@ class ApiService {
 
   ApiService({http.Client? client}) : _client = client ?? http.Client();
 
-  Future<Map<String, String>> _getHeaders({bool requiresAuth = false}) async {
-    Map<String, String> headers = {...ApiConfig.headers};
+  Future<Map<String, String>> _getHeaders(
+      {bool requiresAuth = false, bool isMultipart = false}) async {
+    Map<String, String> headers = {};
+
+    // Для multipart запросов не добавляем Content-Type
+    if (!isMultipart) {
+      headers.addAll(ApiConfig.headers);
+    }
 
     if (requiresAuth) {
       final token = await AuthService.getToken();
@@ -110,7 +117,11 @@ class ApiService {
   Future<dynamic> delete(String endpoint,
       {Map<String, dynamic>? body, bool requiresAuth = false}) async {
     try {
+      print('ApiService: Starting DELETE request to: ${ApiConfig.baseUrl}$endpoint');
+      
       final headers = await _getHeaders(requiresAuth: requiresAuth);
+      print('ApiService: DELETE headers: $headers');
+      
       final response = await _client
           .delete(
             Uri.parse('${ApiConfig.baseUrl}$endpoint'),
@@ -119,13 +130,15 @@ class ApiService {
           )
           .timeout(const Duration(seconds: ApiConfig.timeoutDuration));
 
+      print('ApiService: DELETE response received, processing...');
       return _handleResponse(response);
     } catch (e) {
+      print('ApiService: DELETE request failed with error: $e');
       throw _handleError(e);
     }
   }
 
-  /// Multipart PUT (file upload with update)
+  /// Multipart PUT (file upload with update) via POST + _method=PUT (Laravel style)
   Future<dynamic> putMultipart(
     String endpoint, {
     required Map<String, dynamic> data,
@@ -134,9 +147,13 @@ class ApiService {
   }) async {
     try {
       final uri = Uri.parse('${ApiConfig.baseUrl}$endpoint');
-      final request = http.MultipartRequest('PUT', uri);
-      final headers = await _getHeaders(requiresAuth: requiresAuth);
+      final request = http.MultipartRequest('POST', uri); // Используем POST
+      final headers =
+          await _getHeaders(requiresAuth: requiresAuth, isMultipart: true);
       request.headers.addAll(headers);
+
+      // Добавляем _method=PUT
+      request.fields['_method'] = 'PUT';
 
       // Добавляем текстовые поля
       data.forEach((key, value) {
@@ -182,8 +199,29 @@ class ApiService {
     print('ApiService: Response status: ${response.statusCode}');
     print('ApiService: Response body: ${response.body}');
 
+    // Обработка редиректов (302, 301, etc.)
+    if (response.statusCode >= 300 && response.statusCode < 400) {
+      String redirectMessage = 'Сервер перенаправил запрос';
+      if (response.body.contains('videopokaz.kz')) {
+        redirectMessage = 'API эндпоинт недоступен. Сервер перенаправляет на главную страницу.';
+      }
+      throw ApiException(
+        statusCode: response.statusCode,
+        message: redirectMessage,
+      );
+    }
+
     // Если ответ пустой, возвращаем null
     if (response.body.isEmpty) return null;
+
+    // Проверяем, является ли ответ HTML (что указывает на редирект)
+    if (response.body.trim().startsWith('<!DOCTYPE html>') || 
+        response.body.trim().startsWith('<html>')) {
+      throw ApiException(
+        statusCode: response.statusCode,
+        message: 'Получен HTML ответ вместо JSON. Возможно, API эндпоинт недоступен.',
+      );
+    }
 
     // Пытаемся распарсить JSON для всех ответов
     try {

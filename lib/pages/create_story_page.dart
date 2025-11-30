@@ -7,6 +7,7 @@ import 'package:video_compress/video_compress.dart';
 import '../services/story_service.dart';
 import '../services/publication_price_service.dart';
 import '../models/publication_price.dart';
+import '../utils/video_compression_helper.dart';
 
 class CreateStoryPage extends StatefulWidget {
   const CreateStoryPage({super.key});
@@ -271,43 +272,29 @@ class _CreateStoryPageState extends State<CreateStoryPage> {
   Future<File> _compressVideo(File videoFile) async {
     try {
       // Получаем информацию о видео
-      final originalInfo = await VideoCompress.getMediaInfo(videoFile.path);
+      final originalInfo = await VideoCompressionHelper.getMediaInfo(videoFile.path);
       final originalSize = videoFile.lengthSync();
 
       print('📹 Оригинальное видео:');
       print(
           '   Размер: ${(originalSize / (1024 * 1024)).toStringAsFixed(2)} MB');
-      print('   Разрешение: ${originalInfo.width}x${originalInfo.height}');
-      print('   Длительность: ${originalInfo.duration?.toStringAsFixed(1)}s');
+      if (originalInfo != null) {
+        print('   Разрешение: ${originalInfo.width}x${originalInfo.height}');
+        print('   Длительность: ${originalInfo.duration?.toStringAsFixed(1)}s');
+      }
 
-      // Настройки сжатия
-      final compressedInfo = await VideoCompress.compressVideo(
-        videoFile.path,
-        quality: VideoQuality
-            .MediumQuality, // Средне качество для баланса размера и качества
-        deleteOrigin: false, // Не удаляем оригинал
+      // Используем helper для сжатия видео
+      final compressedFile = await VideoCompressionHelper.compressVideo(
+        videoFile,
+        quality: VideoQuality.MediumQuality,
+        deleteOrigin: false,
         includeAudio: true,
+        onProgress: (progress) {
+          print('Video compression progress: ${progress.toStringAsFixed(1)}%');
+        },
       );
 
-      if (compressedInfo != null && compressedInfo.file != null) {
-        final compressedFile = compressedInfo.file!;
-        final compressedSize = compressedFile.lengthSync();
-        final compressionRatio =
-            ((originalSize - compressedSize) / originalSize * 100);
-
-        print('✅ Сжатое видео:');
-        print(
-            '   Размер: ${(compressedSize / (1024 * 1024)).toStringAsFixed(2)} MB');
-        print('   Сжатие: ${compressionRatio.toStringAsFixed(1)}%');
-        print(
-            '   Экономия: ${((originalSize - compressedSize) / (1024 * 1024)).toStringAsFixed(2)} MB');
-        print('   Путь: ${compressedFile.path}');
-
-        return compressedFile;
-      } else {
-        print('❌ Ошибка сжатия, используем оригинальный файл');
-        return videoFile;
-      }
+      return compressedFile ?? videoFile;
     } catch (e) {
       print('❌ Ошибка при сжатии видео: $e');
       print('   Используем оригинальный файл');

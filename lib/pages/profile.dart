@@ -1022,21 +1022,59 @@ class _ProfilePageState extends State<ProfilePage> {
           ),
           TextButton(
             onPressed: () async {
+              // Закрываем диалог подтверждения
               Navigator.pop(context);
-              try {
-                // Показываем индикатор загрузки
-                showDialog(
-                  context: context,
-                  barrierDismissible: false,
-                  builder: (context) => const Center(
-                    child: CircularProgressIndicator(),
+              
+              // Показываем единственный диалог загрузки
+              showDialog(
+                context: context,
+                barrierDismissible: false,
+                builder: (context) => const AlertDialog(
+                  content: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      CircularProgressIndicator(),
+                      SizedBox(height: 16),
+                      Text('Удаляем объявление...'),
+                    ],
                   ),
-                );
+                ),
+              );
 
-                final success = await _productService.deleteProduct(product.id);
+              try {
+                print('Starting delete operation for product ID: ${product.id}');
+                
+                final success = await _productService.deleteProduct(product.id)
+                    .timeout(
+                      const Duration(seconds: 30),
+                      onTimeout: () {
+                        print('Delete operation timed out');
+                        throw Exception('Операция удаления превысила время ожидания');
+                      },
+                    );
 
-                // Скрываем индикатор загрузки
-                if (mounted) Navigator.pop(context);
+                print('Delete operation completed with success: $success');
+
+                // Безопасно закрываем диалог загрузки
+                if (mounted) {
+                  // Небольшая задержка для стабилизации состояния
+                  await Future.delayed(const Duration(milliseconds: 100));
+                  
+                  try {
+                    // Пытаемся закрыть диалог
+                    Navigator.of(context, rootNavigator: true).pop();
+                    print('Loading dialog closed successfully');
+                  } catch (e) {
+                    print('Error closing loading dialog: $e');
+                    // Резервный способ - попытка через обычный navigator
+                    try {
+                      Navigator.of(context).pop();
+                      print('Loading dialog closed via regular navigator');
+                    } catch (e2) {
+                      print('Error closing via regular navigator: $e2');
+                    }
+                  }
+                }
 
                 if (success) {
                   _refreshProducts(); // Обновляем список
@@ -1048,15 +1086,54 @@ class _ProfilePageState extends State<ProfilePage> {
                       ),
                     );
                   }
+                } else {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text("Не удалось удалить объявление"),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                  }
                 }
               } catch (e) {
-                // Скрываем индикатор загрузки
-                if (mounted) Navigator.pop(context);
-
+                print('Error during delete operation: $e');
+                
+                // Безопасно закрываем диалог загрузки в случае ошибки
                 if (mounted) {
+                  // Небольшая задержка для стабилизации состояния
+                  await Future.delayed(const Duration(milliseconds: 100));
+                  
+                  try {
+                    // Пытаемся закрыть диалог
+                    Navigator.of(context, rootNavigator: true).pop();
+                    print('Loading dialog closed after error');
+                  } catch (e2) {
+                    print('Error closing loading dialog after error: $e2');
+                    // Резервный способ - попытка через обычный navigator
+                    try {
+                      Navigator.of(context).pop();
+                      print('Loading dialog closed via regular navigator after error');
+                    } catch (e3) {
+                      print('Error closing via regular navigator after error: $e3');
+                    }
+                  }
+                }
+                
+                if (mounted) {
+                  String errorMessage = "Ошибка при удалении";
+                  if (e.toString().contains('TimeoutException') || 
+                      e.toString().contains('время ожидания')) {
+                    errorMessage = "Превышено время ожидания. Попробуйте еще раз.";
+                  } else if (e.toString().contains('ApiException')) {
+                    errorMessage = "Ошибка сервера. Попробуйте позже.";
+                  } else {
+                    errorMessage = "Ошибка при удалении: ${e.toString()}";
+                  }
+                  
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                      content: Text("Ошибка при удалении: ${e.toString()}"),
+                      content: Text(errorMessage),
                       backgroundColor: Colors.red,
                     ),
                   );

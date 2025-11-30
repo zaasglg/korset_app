@@ -4,6 +4,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:video_player/video_player.dart';
 import 'package:mask_text_input_formatter/mask_text_input_formatter.dart';
 import 'dart:io';
+import 'dart:async';
 import '../models/category.dart';
 import '../models/parameter.dart';
 import '../models/city.dart';
@@ -15,6 +16,7 @@ import '../services/product_service.dart';
 import '../services/publication_price_service.dart';
 import '../navigation.dart';
 import 'map_location_picker.dart';
+import '../utils/video_compression_helper.dart';
 
 class PublishAdPage extends StatefulWidget {
   const PublishAdPage({super.key});
@@ -682,8 +684,11 @@ class _PublishAdPageState extends State<PublishAdPage>
   }
 
   Widget _buildStepContent() {
-    _fadeController.reset();
-    _fadeController.forward();
+    // Only reset and forward animation controller if it's not already animating
+    if (!_fadeController.isAnimating) {
+      _fadeController.reset();
+      _fadeController.forward();
+    }
 
     switch (_currentStep) {
       case 0:
@@ -692,13 +697,12 @@ class _PublishAdPageState extends State<PublishAdPage>
         return _buildSubCategorySelection();
       case 2:
         // Dedicated step for 3rd level category selection
-        if (_selectedSubCategory != null) {
-          final selectedParent = _parentCategories.firstWhere(
-            (category) => category.id.toString() == _selectedParentCategory,
-            orElse: () => _parentCategories.first,
-          );
-
+        if (_selectedSubCategory != null && _selectedParentCategory != null) {
           try {
+            final selectedParent = _parentCategories.firstWhere(
+              (category) => category.id.toString() == _selectedParentCategory,
+            );
+
             final selectedSubcategory = selectedParent.children.firstWhere(
               (subcat) => subcat.id.toString() == _selectedSubCategory,
             );
@@ -723,14 +727,15 @@ class _PublishAdPageState extends State<PublishAdPage>
   }
 
   Widget _buildSubCategorySelection() {
-    if (_selectedParentCategory == null) return Container();
+    if (_selectedParentCategory == null || _parentCategories.isEmpty) return Container();
 
-    final selectedParent = _parentCategories.firstWhere(
-      (category) => category.id.toString() == _selectedParentCategory,
-      orElse: () => _parentCategories.first,
-    );
+    try {
+      final selectedParent = _parentCategories.firstWhere(
+        (category) => category.id.toString() == _selectedParentCategory,
+        orElse: () => _parentCategories.first,
+      );
 
-    final subcategories = selectedParent.children;
+      final subcategories = selectedParent.children;
 
     if (subcategories.isEmpty) {
       return Center(
@@ -805,7 +810,7 @@ class _PublishAdPageState extends State<PublishAdPage>
                 ),
               ),
               const SizedBox(width: 10),
-              Text(
+              const Text(
                 'Подкатегории',
                 style: TextStyle(
                   fontSize: 14,
@@ -925,6 +930,34 @@ class _PublishAdPageState extends State<PublishAdPage>
         ],
       ),
     );
+    } catch (e) {
+      print('Error in _buildSubCategorySelection: $e');
+      return Container(
+        padding: const EdgeInsets.all(24),
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.error_outline,
+                size: 48,
+                color: Colors.red[400],
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Ошибка загрузки подкатегорий',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.red[700],
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+      );
+    }
   }
 
   Widget _buildCategorySelection() {
@@ -1264,10 +1297,15 @@ class _PublishAdPageState extends State<PublishAdPage>
       );
     }
 
-    final selectedParent = _parentCategories.firstWhere(
-      (category) => category.id.toString() == _selectedParentCategory,
-      orElse: () => _parentCategories.first,
-    );
+    if (_selectedParentCategory == null || _parentCategories.isEmpty) {
+      return Container();
+    }
+
+    try {
+      final selectedParent = _parentCategories.firstWhere(
+        (category) => category.id.toString() == _selectedParentCategory,
+        orElse: () => _parentCategories.first,
+      );
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
@@ -1341,7 +1379,7 @@ class _PublishAdPageState extends State<PublishAdPage>
                   ),
                 ),
                 const SizedBox(width: 10),
-                Text(
+                const Text(
                   'Выберите точную категорию',
                   style: TextStyle(
                     fontSize: 14,
@@ -1449,6 +1487,34 @@ class _PublishAdPageState extends State<PublishAdPage>
         ],
       ),
     );
+    } catch (e) {
+      print('Error in _buildThirdLevelCategorySelection: $e');
+      return Container(
+        padding: const EdgeInsets.all(24),
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.error_outline,
+                size: 48,
+                color: Colors.red[400],
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Ошибка загрузки категорий',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.red[700],
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+      );
+    }
   }
 
   Widget _buildInformationForm() {
@@ -1835,9 +1901,9 @@ class _PublishAdPageState extends State<PublishAdPage>
                   ),
                   child: Row(
                     children: [
-                      Icon(
+                      const Icon(
                         IconlyBroken.tickSquare,
-                        color: const Color(0xFF3366FF),
+                        color: Color(0xFF3366FF),
                         size: 16,
                       ),
                       const SizedBox(width: 8),
@@ -2052,20 +2118,20 @@ class _PublishAdPageState extends State<PublishAdPage>
                 color: const Color(0xff183B4E).withValues(alpha: 0.1),
               ),
             ),
-            child: Row(
+            child: const Row(
               children: [
                 Icon(
                   IconlyBroken.infoCircle,
-                  color: const Color(0xff183B4E),
+                  color: Color(0xff183B4E),
                   size: 20,
                 ),
-                const SizedBox(width: 12),
+                SizedBox(width: 12),
                 Expanded(
                   child: Text(
                     'Поля отмеченные * обязательны для заполнения. Адрес поможет покупателям найти вас быстрее.',
                     style: TextStyle(
                       fontSize: 14,
-                      color: const Color(0xff183B4E),
+                      color: Color(0xff183B4E),
                       fontWeight: FontWeight.w500,
                     ),
                   ),
@@ -2209,14 +2275,14 @@ class _PublishAdPageState extends State<PublishAdPage>
                                       color: Colors.black54,
                                       borderRadius: BorderRadius.circular(6),
                                     ),
-                                    child: Row(
+                                    child: const Row(
                                       children: [
-                                        const Icon(
+                                        Icon(
                                           Icons.videocam,
                                           size: 16,
                                           color: Colors.white,
                                         ),
-                                        const SizedBox(width: 4),
+                                        SizedBox(width: 4),
                                         Text(
                                           'Загрузка...',
                                           style: TextStyle(
@@ -2261,7 +2327,7 @@ class _PublishAdPageState extends State<PublishAdPage>
                               child: Container(
                                 width: 60,
                                 height: 60,
-                                decoration: BoxDecoration(
+                                decoration: const BoxDecoration(
                                   color: Colors.black54,
                                   shape: BoxShape.circle,
                                 ),
@@ -2290,14 +2356,14 @@ class _PublishAdPageState extends State<PublishAdPage>
                         color: Colors.black54,
                         borderRadius: BorderRadius.circular(6),
                       ),
-                      child: Row(
+                      child: const Row(
                         children: [
-                          const Icon(
+                          Icon(
                             Icons.videocam,
                             size: 16,
                             color: Colors.white,
                           ),
-                          const SizedBox(width: 4),
+                          SizedBox(width: 4),
                           Text(
                             'Видео',
                             style: TextStyle(
@@ -2348,15 +2414,15 @@ class _PublishAdPageState extends State<PublishAdPage>
                           color: const Color(0xff183B4E).withValues(alpha: 0.9),
                           borderRadius: BorderRadius.circular(16),
                         ),
-                        child: Row(
+                        child: const Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Icon(
+                            Icon(
                               Icons.edit,
                               color: Colors.white,
                               size: 16,
                             ),
-                            const SizedBox(width: 4),
+                            SizedBox(width: 4),
                             Text(
                               'Заменить',
                               style: TextStyle(
@@ -2391,9 +2457,9 @@ class _PublishAdPageState extends State<PublishAdPage>
               children: [
                 Row(
                   children: [
-                    Icon(
+                    const Icon(
                       Icons.videocam,
-                      color: const Color(0xff183B4E),
+                      color: Color(0xff183B4E),
                       size: 20,
                     ),
                     const SizedBox(width: 12),
@@ -2532,15 +2598,15 @@ class _PublishAdPageState extends State<PublishAdPage>
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(color: Colors.grey[200]!),
                         ),
-                        child: Column(
+                        child: const Column(
                           children: [
                             Icon(
                               Icons.videocam,
                               size: 32,
-                              color: const Color(0xff183B4E),
+                              color: Color(0xff183B4E),
                             ),
-                            const SizedBox(height: 8),
-                            const Text(
+                            SizedBox(height: 8),
+                            Text(
                               'Камера',
                               style: TextStyle(
                                 fontSize: 14,
@@ -2568,15 +2634,15 @@ class _PublishAdPageState extends State<PublishAdPage>
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(color: Colors.grey[200]!),
                         ),
-                        child: Column(
+                        child: const Column(
                           children: [
                             Icon(
                               Icons.video_library,
                               size: 32,
-                              color: const Color(0xff183B4E),
+                              color: Color(0xff183B4E),
                             ),
-                            const SizedBox(height: 8),
-                            const Text(
+                            SizedBox(height: 8),
+                            Text(
                               'Галерея',
                               style: TextStyle(
                                 fontSize: 14,
@@ -2640,7 +2706,7 @@ class _PublishAdPageState extends State<PublishAdPage>
         await _videoController!.initialize();
         setState(() {});
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
+          const SnackBar(
             content: Text('Видео успешно загружено'),
             backgroundColor: Colors.green,
             duration: Duration(seconds: 2),
@@ -2664,7 +2730,7 @@ class _PublishAdPageState extends State<PublishAdPage>
         SnackBar(
           content: Text(errorMessage),
           backgroundColor: Colors.red,
-          duration: Duration(seconds: 3),
+          duration: const Duration(seconds: 3),
         ),
       );
 
@@ -2794,10 +2860,10 @@ class _PublishAdPageState extends State<PublishAdPage>
                   color: const Color(0xFF3366FF).withValues(alpha: 0.12),
                   shape: BoxShape.circle,
                 ),
-                child: Icon(
+                child: const Icon(
                   IconlyBroken.tickSquare,
                   size: 32,
-                  color: const Color(0xFF3366FF),
+                  color: Color(0xFF3366FF),
                 ),
               ),
               const SizedBox(height: 24),
@@ -2876,20 +2942,20 @@ class _PublishAdPageState extends State<PublishAdPage>
                 color: const Color(0xff183B4E).withValues(alpha: 0.1),
               ),
             ),
-            child: Row(
+            child: const Row(
               children: [
                 Icon(
                   IconlyBroken.infoCircle,
-                  color: const Color(0xff183B4E),
+                  color: Color(0xff183B4E),
                   size: 20,
                 ),
-                const SizedBox(width: 12),
+                SizedBox(width: 12),
                 Expanded(
                   child: Text(
                     'Заполнение дополнительных параметров поможет покупателям быстрее найти ваш товар',
                     style: TextStyle(
                       fontSize: 14,
-                      color: const Color(0xff183B4E),
+                      color: Color(0xff183B4E),
                       fontWeight: FontWeight.w500,
                       height: 1.4,
                     ),
@@ -3244,20 +3310,20 @@ class _PublishAdPageState extends State<PublishAdPage>
                 color: const Color(0xff183B4E).withValues(alpha: 0.1),
               ),
             ),
-            child: Row(
+            child: const Row(
               children: [
                 Icon(
                   IconlyBroken.infoSquare,
                   size: 20,
-                  color: const Color(0xff183B4E),
+                  color: Color(0xff183B4E),
                 ),
-                const SizedBox(width: 12),
+                SizedBox(width: 12),
                 Expanded(
                   child: Text(
                     'Выбранный тариф определяет длительность размещения и дополнительные возможности вашего объявления',
                     style: TextStyle(
                       fontSize: 14,
-                      color: const Color(0xff183B4E),
+                      color: Color(0xff183B4E),
                       fontWeight: FontWeight.w500,
                       height: 1.4,
                     ),
@@ -3531,27 +3597,32 @@ class _PublishAdPageState extends State<PublishAdPage>
       case 0:
         return _selectedParentCategory != null && !_isLoading;
       case 1:
-        if (_selectedParentCategory != null) {
-          final selectedParent = _parentCategories.firstWhere(
-            (category) => category.id.toString() == _selectedParentCategory,
-            orElse: () => _parentCategories.first,
-          );
+        if (_selectedParentCategory != null && _parentCategories.isNotEmpty) {
+          try {
+            final selectedParent = _parentCategories.firstWhere(
+              (category) => category.id.toString() == _selectedParentCategory,
+              orElse: () => _parentCategories.first,
+            );
 
-          if (selectedParent.children.isEmpty) {
-            return true;
+            if (selectedParent.children.isEmpty) {
+              return true;
+            }
+
+            return _selectedSubCategory != null;
+          } catch (e) {
+            print('Error in _canProceed case 1: $e');
+            return false;
           }
-
-          return _selectedSubCategory != null;
         }
         return false;
       case 2:
-        if (_selectedSubCategory != null) {
-          final selectedParent = _parentCategories.firstWhere(
-            (category) => category.id.toString() == _selectedParentCategory,
-            orElse: () => _parentCategories.first,
-          );
-
+        if (_selectedSubCategory != null && _selectedParentCategory != null && _parentCategories.isNotEmpty) {
           try {
+            final selectedParent = _parentCategories.firstWhere(
+              (category) => category.id.toString() == _selectedParentCategory,
+              orElse: () => _parentCategories.first,
+            );
+
             final selectedSubcategory = selectedParent.children.firstWhere(
               (subcat) => subcat.id.toString() == _selectedSubCategory,
             );
@@ -3559,9 +3630,9 @@ class _PublishAdPageState extends State<PublishAdPage>
             if (selectedSubcategory.children.isNotEmpty) {
               return _selectedThirdLevelCategory != null;
             }
-
             return true;
           } catch (e) {
+            print('Error in _canProceed case 2: $e');
             return false;
           }
         }
@@ -3617,29 +3688,35 @@ class _PublishAdPageState extends State<PublishAdPage>
     }
 
     if (_currentStep == 0) {
-      final selectedParent = _parentCategories.firstWhere(
-        (category) => category.id.toString() == _selectedParentCategory,
-        orElse: () => _parentCategories.first,
-      );
+      if (_selectedParentCategory != null && _parentCategories.isNotEmpty) {
+        try {
+          final selectedParent = _parentCategories.firstWhere(
+            (category) => category.id.toString() == _selectedParentCategory,
+            orElse: () => _parentCategories.first,
+          );
 
-      if (selectedParent.children.isEmpty) {
-        setState(() {
-          _currentStep = 3;
-          _fadeController.reset();
-          _fadeController.forward();
-        });
-        return;
+          if (selectedParent.children.isEmpty) {
+            setState(() {
+              _currentStep = 3;
+              _fadeController.reset();
+              _fadeController.forward();
+            });
+            return;
+          }
+        } catch (e) {
+          print('Error in _handleNext case 0: $e');
+        }
       }
     }
 
     if (_currentStep == 1) {
-      if (_selectedSubCategory != null) {
-        final selectedParent = _parentCategories.firstWhere(
-          (category) => category.id.toString() == _selectedParentCategory,
-          orElse: () => _parentCategories.first,
-        );
-
+      if (_selectedSubCategory != null && _selectedParentCategory != null && _parentCategories.isNotEmpty) {
         try {
+          final selectedParent = _parentCategories.firstWhere(
+            (category) => category.id.toString() == _selectedParentCategory,
+            orElse: () => _parentCategories.first,
+          );
+
           final selectedSubcategory = selectedParent.children.firstWhere(
             (subcat) => subcat.id.toString() == _selectedSubCategory,
           );
@@ -3678,59 +3755,111 @@ class _PublishAdPageState extends State<PublishAdPage>
   }
 
   Future<void> _publishAd() async {
-    // Show loading dialog
+    // Create progress stream controller
+    final StreamController<int> progressController = StreamController<int>.broadcast();
+
+    // Show loading dialog with progress
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (BuildContext context) {
-        return Dialog(
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 64,
-                  height: 64,
-                  decoration: BoxDecoration(
-                    color: const Color(0xff183B4E).withValues(alpha: 0.06),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Center(
-                    child: CircularProgressIndicator(
-                      color: Color(0xff183B4E),
-                      strokeWidth: 2.5,
+        return StreamBuilder<int>(
+          stream: progressController.stream,
+          initialData: 0,
+          builder: (context, snapshot) {
+            final progress = snapshot.data ?? 0;
+            
+            String message;
+            if (progress < 30) {
+              message = 'Подготавливаем данные...';
+            } else if (progress < 70) {
+              message = 'Загружаем видео...';
+            } else if (progress < 90) {
+              message = 'Создаем объявление...';
+            } else {
+              message = 'Завершаем публикацию...';
+            }
+
+            return Dialog(
+              shape:
+                  RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 64,
+                      height: 64,
+                      decoration: BoxDecoration(
+                        color: const Color(0xff183B4E).withValues(alpha: 0.06),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Center(
+                        child: Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            CircularProgressIndicator(
+                              value: progress / 100.0,
+                              color: const Color(0xff183B4E),
+                              strokeWidth: 2.5,
+                              backgroundColor: Colors.grey[200],
+                            ),
+                            Text(
+                              '$progress%',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xff183B4E),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
-                  ),
+                    const SizedBox(height: 24),
+                    const Text(
+                      'Публикуем объявление',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF1A1A1A),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      message,
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.grey[600],
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 24),
-                const Text(
-                  'Публикуем объявление',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFF1A1A1A),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Пожалуйста, подождите...',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.grey[600],
-                  ),
-                ),
-              ],
-            ),
-          ),
+              ),
+            );
+          },
         );
       },
     );
 
+    // Start progress updates
+    
+    // Function to update progress
+    void updateProgress(int progress) {
+      if (!progressController.isClosed) {
+        progressController.add(progress);
+      }
+    }
+
     try {
+      // Initial progress
+      updateProgress(10);
+      await Future.delayed(const Duration(milliseconds: 300));
       // Prepare parameters for API
+      updateProgress(25);
+      await Future.delayed(const Duration(milliseconds: 200));
+      
       final parameters = _categoryParameters
           .where((param) => param.value != null && param.value!.isNotEmpty)
           .map((param) => {
@@ -3739,7 +3868,12 @@ class _PublishAdPageState extends State<PublishAdPage>
               })
           .toList();
 
+      // Start uploading
+      updateProgress(40);
+      await Future.delayed(const Duration(milliseconds: 300));
+
       // Call API to create product
+      updateProgress(60);
       final result = await _productService.createProduct(
         categoryId: _finalSelectedCategoryId!,
         cityId: _selectedCity!.id.toString(),
@@ -3764,12 +3898,29 @@ class _PublishAdPageState extends State<PublishAdPage>
 
       print('Product created successfully: $result');
 
+      // Complete progress
+      updateProgress(90);
+      await Future.delayed(const Duration(milliseconds: 300));
+      
+      updateProgress(100);
+      await Future.delayed(const Duration(milliseconds: 500));
+
+      // Close progress stream
+      if (!progressController.isClosed) {
+        progressController.close();
+      }
+
       // Close loading dialog
       if (mounted) Navigator.of(context).pop();
 
       // Show success dialog
       _showSuccessDialog();
     } catch (e) {
+      // Close progress stream
+      if (!progressController.isClosed) {
+        progressController.close();
+      }
+
       // Close loading dialog
       if (mounted) Navigator.of(context).pop();
 
@@ -3803,10 +3954,10 @@ class _PublishAdPageState extends State<PublishAdPage>
                     color: const Color(0xFF3366FF).withValues(alpha: 0.12),
                     shape: BoxShape.circle,
                   ),
-                  child: Icon(
+                  child: const Icon(
                     IconlyBroken.tickSquare,
                     size: 40,
-                    color: const Color(0xFF3366FF),
+                    color: Color(0xFF3366FF),
                   ),
                 ),
                 const SizedBox(height: 24),
@@ -4024,6 +4175,8 @@ class _PublishAdPageState extends State<PublishAdPage>
       _videoController!.dispose();
       _videoController = null;
     }
+    // Cancel any ongoing video compression
+    VideoCompressionHelper.cancelCompression();
     super.dispose();
   }
 }

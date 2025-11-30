@@ -181,23 +181,29 @@ class AboutUsPage extends StatelessWidget {
                     ),
                     const SizedBox(height: 16),
                     
-                    _buildContactInfo(
-                      icon: IconlyBroken.message,
-                      title: "Email",
-                      info: "info@korset.kz",
-                    ),
-                    
-                    _buildContactInfo(
-                      icon: IconlyBroken.call,
-                      title: "Телефон",
-                      info: "+7 (777) 123-45-67",
-                    ),
-                    
-                    _buildContactInfo(
-                      icon: IconlyBroken.location,
-                      title: "Адрес",
-                      info: "г. Алматы, ул. Абая 150/230",
-                    ),
+                   // Только новые контактные данные
+                   const SizedBox(height: 16),
+                   // Дополнительная информация
+                   _buildContactInfo(
+                     icon: IconlyBroken.profile,
+                     title: "ИП Абильдаева",
+                     info: "",
+                   ),
+                   _buildContactInfo(
+                     icon: IconlyBroken.location,
+                     title: "Город",
+                     info: "Тараз, 1-й пер. Маяковского 15",
+                   ),
+                   _buildContactInfo(
+                     icon: IconlyBroken.call,
+                     title: "Телефон",
+                     info: "+7 747 420 87 89",
+                   ),
+                   _buildContactInfo(
+                     icon: IconlyBroken.message,
+                     title: "Email",
+                     info: "korset.kz@bk.ru",
+                   ),
                   ],
                 ),
               ),
@@ -207,7 +213,7 @@ class AboutUsPage extends StatelessWidget {
               // Version info
               const Center(
                 child: Text(
-                  "Версия приложения: 1.0.0",
+                  "Версия приложения: 1.0.1",
                   style: TextStyle(
                     fontSize: 14,
                     color: Colors.grey,

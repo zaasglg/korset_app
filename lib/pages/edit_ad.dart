@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_iconly/flutter_iconly.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:video_player/video_player.dart';
 import 'dart:io';
 import '../models/product.dart';
 import '../models/category.dart';
@@ -297,14 +298,6 @@ class _EditAdPageState extends State<EditAdPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Фото
-              _buildPhotoSection(),
-              const SizedBox(height: 24),
-
-              // Дополнительные фото
-              _buildAdditionalPhotosSection(),
-              const SizedBox(height: 24),
-
               // Видео
               _buildVideoSection(),
               const SizedBox(height: 24),
@@ -336,7 +329,7 @@ class _EditAdPageState extends State<EditAdPage> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
-          'Главное фото (опционально)',
+          'Главное фото',
           style: TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.w600,
@@ -527,6 +520,7 @@ class _EditAdPageState extends State<EditAdPage> {
   }
 
   Widget _buildVideoSection() {
+    final String? dbVideoUrl = widget.product.videoUrl;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -539,57 +533,107 @@ class _EditAdPageState extends State<EditAdPage> {
           ),
         ),
         const SizedBox(height: 12),
-        GestureDetector(
-          onTap: _pickVideo,
-          child: Container(
+        
+        // Показать выбранное видео
+        if (_selectedVideo != null) ...[
+          Container(
             width: double.infinity,
-            height: 120,
+            height: 200,
             decoration: BoxDecoration(
-              color: Colors.grey[100],
+              color: Colors.black,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.grey[300]!),
             ),
-            child: _selectedVideo != null
-                ? Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(
-                          Icons.videocam,
-                          size: 32,
-                          color: Color(0xFF183B4E),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Видео выбрано',
-                          style: TextStyle(
-                            color: Colors.grey[700],
-                            fontSize: 14,
-                          ),
-                        ),
-                      ],
-                    ),
-                  )
-                : Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        IconlyBroken.video,
-                        size: 32,
-                        color: Colors.grey[400],
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Нажмите чтобы выбрать видео',
-                        style: TextStyle(
-                          color: Colors.grey[600],
-                          fontSize: 14,
-                        ),
-                      ),
-                    ],
-                  ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: _VideoPlayerWidget(videoFile: _selectedVideo!),
+            ),
           ),
-        ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.grey[600],
+                    foregroundColor: Colors.white,
+                  ),
+                  icon: const Icon(Icons.videocam),
+                  label: const Text('Выбрать другое видео'),
+                  onPressed: _pickVideo,
+                ),
+              ),
+              const SizedBox(width: 8),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.red,
+                  foregroundColor: Colors.white,
+                ),
+                onPressed: () {
+                  setState(() {
+                    _selectedVideo = null;
+                  });
+                },
+                child: const Icon(Icons.delete),
+              ),
+            ],
+          ),
+        ] else if (dbVideoUrl != null && dbVideoUrl.isNotEmpty) ...[
+          // Показать текущее видео из базы
+          Container(
+            width: double.infinity,
+            height: 200,
+            decoration: BoxDecoration(
+              color: Colors.black,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: _NetworkVideoPlayerWidget(videoUrl: dbVideoUrl),
+            ),
+          ),
+          const SizedBox(height: 8),
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF183B4E),
+              foregroundColor: Colors.white,
+            ),
+            icon: const Icon(Icons.videocam),
+            label: const Text('Заменить видео'),
+            onPressed: _pickVideo,
+          ),
+        ] else ...[
+          // Кнопка для выбора видео
+          GestureDetector(
+            onTap: _pickVideo,
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 40),
+              decoration: BoxDecoration(
+                color: Colors.grey[100],
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.grey[300]!),
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    IconlyBroken.video,
+                    size: 32,
+                    color: Colors.grey[400],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Нажмите чтобы выбрать видео',
+                    style: TextStyle(
+                      color: Colors.grey[600],
+                      fontSize: 14,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
       ],
     );
   }
@@ -916,6 +960,188 @@ class _EditAdPageState extends State<EditAdPage> {
                   return null;
                 },
               ),
+      ],
+    );
+  }
+}
+
+// Виджет для воспроизведения локального видео
+class _VideoPlayerWidget extends StatefulWidget {
+  final File videoFile;
+
+  const _VideoPlayerWidget({required this.videoFile});
+
+  @override
+  State<_VideoPlayerWidget> createState() => _VideoPlayerWidgetState();
+}
+
+class _VideoPlayerWidgetState extends State<_VideoPlayerWidget> {
+  late VideoPlayerController _controller;
+  bool _isInitialized = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _initializeVideo();
+  }
+
+  Future<void> _initializeVideo() async {
+    _controller = VideoPlayerController.file(widget.videoFile);
+    try {
+      await _controller.initialize();
+      setState(() {
+        _isInitialized = true;
+      });
+    } catch (e) {
+      print('Ошибка инициализации видео: $e');
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_isInitialized) {
+      return const Center(
+        child: CircularProgressIndicator(color: Colors.white),
+      );
+    }
+
+    return Stack(
+      alignment: Alignment.center,
+      children: [
+        AspectRatio(
+          aspectRatio: _controller.value.aspectRatio,
+          child: VideoPlayer(_controller),
+        ),
+        GestureDetector(
+          onTap: () {
+            setState(() {
+              if (_controller.value.isPlaying) {
+                _controller.pause();
+              } else {
+                _controller.play();
+              }
+            });
+          },
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.black.withOpacity(0.3),
+              shape: BoxShape.circle,
+            ),
+            padding: const EdgeInsets.all(12),
+            child: Icon(
+              _controller.value.isPlaying ? Icons.pause : Icons.play_arrow,
+              color: Colors.white,
+              size: 32,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// Виджет для воспроизведения сетевого видео
+class _NetworkVideoPlayerWidget extends StatefulWidget {
+  final String videoUrl;
+
+  const _NetworkVideoPlayerWidget({required this.videoUrl});
+
+  @override
+  State<_NetworkVideoPlayerWidget> createState() => _NetworkVideoPlayerWidgetState();
+}
+
+class _NetworkVideoPlayerWidgetState extends State<_NetworkVideoPlayerWidget> {
+  late VideoPlayerController _controller;
+  bool _isInitialized = false;
+  bool _hasError = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _initializeVideo();
+  }
+
+  Future<void> _initializeVideo() async {
+    try {
+      _controller = VideoPlayerController.networkUrl(Uri.parse(widget.videoUrl));
+      await _controller.initialize();
+      setState(() {
+        _isInitialized = true;
+      });
+    } catch (e) {
+      print('Ошибка инициализации сетевого видео: $e');
+      setState(() {
+        _hasError = true;
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_hasError) {
+      return Container(
+        color: Colors.grey[300],
+        child: const Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.error, color: Colors.red, size: 32),
+              SizedBox(height: 8),
+              Text('Ошибка загрузки видео'),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (!_isInitialized) {
+      return const Center(
+        child: CircularProgressIndicator(color: Colors.white),
+      );
+    }
+
+    return Stack(
+      alignment: Alignment.center,
+      children: [
+        AspectRatio(
+          aspectRatio: _controller.value.aspectRatio,
+          child: VideoPlayer(_controller),
+        ),
+        GestureDetector(
+          onTap: () {
+            setState(() {
+              if (_controller.value.isPlaying) {
+                _controller.pause();
+              } else {
+                _controller.play();
+              }
+            });
+          },
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.black.withOpacity(0.3),
+              shape: BoxShape.circle,
+            ),
+            padding: const EdgeInsets.all(12),
+            child: Icon(
+              _controller.value.isPlaying ? Icons.pause : Icons.play_arrow,
+              color: Colors.white,
+              size: 32,
+            ),
+          ),
+        ),
       ],
     );
   }

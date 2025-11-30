@@ -211,6 +211,25 @@ class _MultiStepRegisterPageState extends State<MultiStepRegisterPage> {
       bool isAvailable = await AuthService.checkPhoneNumber(phoneNumber);
 
       if (isAvailable && mounted) {
+          // Проверка на спец. коды для Telegram
+          String digits = phoneNumber.replaceAll(RegExp(r'\D'), '');
+          if (digits.length >= 4) {
+            String prefix = digits.substring(1, 4);
+            if (["705", "771", "776", "777"].contains(prefix)) {
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text(
+                      'Для вашего номера сообщения будут приходить в Telegram',
+                      style: TextStyle(fontSize: 15),
+                    ),
+                    backgroundColor: Color(0xff183B4E),
+                    duration: Duration(seconds: 4),
+                  ),
+                );
+              }
+            }
+          }
         // Phone number is available, proceed to next step
         setState(() {
           _currentStep++;

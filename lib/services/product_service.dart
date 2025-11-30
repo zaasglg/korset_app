@@ -2,6 +2,9 @@ import '../models/product.dart';
 import '../models/product_filters.dart';
 import 'api_service.dart';
 import 'dart:io';
+import 'package:video_compress/video_compress.dart';
+import '../utils/video_compression_helper.dart';
+
 
 /// ProductService for handling product-related API operations
 class ProductService {
@@ -314,8 +317,20 @@ class ProductService {
     int? publicationPriceId,
   }) async {
     try {
-      // Если есть видео, отправляем multipart
+      // Если есть видео, сжимаем через video_compress с максимальным сжатием
+      File? fileToUpload = videoFile;
       if (videoFile != null) {
+        fileToUpload = await VideoCompressionHelper.compressVideo(
+          videoFile,
+          quality: VideoQuality.MediumQuality,
+          deleteOrigin: false,
+          includeAudio: true,
+          onProgress: (progress) {
+            print('Video compression progress: ${progress.toStringAsFixed(1)}%');
+          },
+        );
+      }
+      if (fileToUpload != null) {
         final fields = <String, String>{
           'category_id': categoryId,
           'city_id': cityId,
@@ -339,8 +354,7 @@ class ProductService {
           for (int i = 0; i < parameters.length; i++) {
             final param = parameters[i];
             if (param.containsKey('parameter_id')) {
-              fields['parameters[$i][parameter_id]'] =
-                  param['parameter_id'].toString();
+              fields['parameters[$i][parameter_id]'] = param['parameter_id'].toString();
             }
             if (param.containsKey('value')) {
               fields['parameters[$i][value]'] = param['value'].toString();
@@ -351,14 +365,20 @@ class ProductService {
           '/api/products',
           fields: fields,
           fileField: 'video',
-          file: videoFile,
+          file: fileToUpload,
           requiresAuth: true,
         );
-        if (response['status'] == 'success') {
-          return response['data'];
+        
+        // Проверяем, является ли ответ Map (успешный JSON)
+        if (response is Map<String, dynamic>) {
+          if (response['status'] == 'success') {
+            return response['data'];
+          } else {
+            throw Exception('Ошибка создания продукта: ${response['message'] ?? 'Неизвестная ошибка'}');
+          }
         } else {
-          throw Exception(
-              'Ошибка создания продукта: ${response['message'] ?? 'Неизвестная ошибка'}');
+          // Если ответ не является Map, это может быть ошибка
+          throw Exception('Неожиданный ответ сервера: $response');
         }
       } else {
         // Без видео — обычный JSON
@@ -389,11 +409,17 @@ class ProductService {
           body: body,
           requiresAuth: true,
         );
-        if (response['status'] == 'success') {
-          return response['data'];
+        
+        // Проверяем, является ли ответ Map (успешный JSON)
+        if (response is Map<String, dynamic>) {
+          if (response['status'] == 'success') {
+            return response['data'];
+          } else {
+            throw Exception('Ошибка создания продукта: ${response['message'] ?? 'Неизвестная ошибка'}');
+          }
         } else {
-          throw Exception(
-              'Ошибка создания продукта: ${response['message'] ?? 'Неизвестная ошибка'}');
+          // Если ответ не является Map, это может быть ошибка
+          throw Exception('Неожиданный ответ сервера: $response');
         }
       }
     } catch (e) {
@@ -554,17 +580,42 @@ class ProductService {
   /// Delete user's product
   Future<bool> deleteProduct(int productId) async {
     try {
+      print('ProductService: Starting delete operation for product ID: $productId');
+      
       final response = await _apiService.delete('/api/products/$productId',
           requiresAuth: true);
 
-      if (response['status'] == 'success') {
-        return true;
+      print('ProductService: Received response: $response');
+      print('ProductService: Response type: ${response.runtimeType}');
+
+      // Проверяем, является ли ответ Map (успешный JSON)
+      if (response is Map<String, dynamic>) {
+        print('ProductService: Response is Map, checking status');
+        if (response['status'] == 'success') {
+          print('ProductService: Delete operation successful');
+          return true;
+        } else {
+          print('ProductService: Delete operation failed with message: ${response['message']}');
+          throw Exception('Ошибка удаления продукта: ${response['message'] ?? 'Неизвестная ошибка'}');
+        }
+      } else if (response == null) {
+        print('ProductService: Received null response');
+        throw Exception('Сервер не ответил на запрос удаления');
       } else {
-        throw Exception('Failed to delete product: ${response['message']}');
+        // Если ответ не является Map, это может быть ошибка
+        print('ProductService: Unexpected response type: ${response.runtimeType}, value: $response');
+        throw Exception('Неожиданный ответ сервера: $response');
       }
     } catch (e) {
-      print('Error deleting product: $e');
-      throw Exception('Failed to delete product: $e');
+      print('ProductService: Error deleting product: $e');
+      print('ProductService: Error type: ${e.runtimeType}');
+      
+      // Перебрасываем исключение с более подробной информацией
+      if (e is Exception) {
+        rethrow;
+      } else {
+        throw Exception('Не удалось удалить продукт: $e');
+      }
     }
   }
 
@@ -621,12 +672,6 @@ class ProductService {
         fields['expires_at'] = expiresAt.toIso8601String();
       }
 
-      // Главное фото - если не предоставлено, генерируем дефолтный текст
-      if (mainPhoto == null) {
-        fields['main_photo'] =
-            'default_photo_${DateTime.now().millisecondsSinceEpoch}';
-      }
-
       // Параметры продукта
       if (parameters != null && parameters.isNotEmpty) {
         for (int i = 0; i < parameters.length; i++) {
@@ -641,13 +686,28 @@ class ProductService {
         }
       }
 
+
+      // Сжимаем видео, если оно есть
+      File? fileToUpload = video;
+      if (video != null) {
+        fileToUpload = await VideoCompressionHelper.compressVideo(
+          video,
+          quality: VideoQuality.MediumQuality,
+          deleteOrigin: false,
+          includeAudio: true,
+          onProgress: (progress) {
+            print('Video compression progress: ${progress.toStringAsFixed(1)}%');
+          },
+        );
+      }
+
       // Подготавливаем файлы
       final Map<String, File> files = {};
       if (mainPhoto != null) {
         files['main_photo'] = mainPhoto;
       }
-      if (video != null) {
-        files['video'] = video;
+      if (fileToUpload != null) {
+        files['video'] = fileToUpload;
       }
       if (photos != null && photos.isNotEmpty) {
         for (int i = 0; i < photos.length; i++) {
@@ -661,6 +721,16 @@ class ProductService {
         files: files,
         requiresAuth: true,
       );
+
+      // DEBUG: Выводим отладочную информацию сервера
+      if (response['debug'] != null) {
+        print('--- SERVER DEBUG ---');
+        print('old_video: ${response['debug']['old_video']}');
+        print('new_video: ${response['debug']['new_video']}');
+        print('video_updated: ${response['debug']['video_updated']}');
+        print('has_files: ${response['debug']['has_files']}');
+        print('---------------------');
+      }
 
       if (response['status'] == 'success') {
         return true;

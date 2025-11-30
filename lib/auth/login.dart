@@ -11,6 +11,120 @@ class LoginPage extends StatefulWidget {
 }
 
 class _LoginPageState extends State<LoginPage> {
+  Future<void> _showForgotPasswordBottomSheet() async {
+    final TextEditingController phoneController = TextEditingController();
+    var phoneMaskFormatter = MaskTextInputFormatter(
+      mask: '+7 (###) ###-##-##',
+      filter: {"#": RegExp(r'[0-9]')},
+      type: MaskAutoCompletionType.lazy,
+    );
+    String? errorText;
+    bool isLoading = false;
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return Padding(
+              padding: EdgeInsets.only(
+                left: 24,
+                right: 24,
+                top: 24,
+                bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Сброс пароля',
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 18),
+                  TextField(
+                    controller: phoneController,
+                    keyboardType: TextInputType.phone,
+                    inputFormatters: [phoneMaskFormatter],
+                    decoration: InputDecoration(
+                      labelText: 'Телефон',
+                      hintText: '+7 (___) ___-__-__',
+                      errorText: errorText,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 48,
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xff183B4E),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      onPressed: isLoading
+                          ? null
+                          : () async {
+                              final phone = phoneController.text.replaceAll(RegExp(r'\D'), '');
+                              if (phone.length != 11) {
+                                setState(() => errorText = 'Введите корректный номер');
+                                return;
+                              }
+                              setState(() {
+                                isLoading = true;
+                                errorText = null;
+                              });
+                              try {
+                                print('Отправляем запрос на сброс пароля для номера: +$phone');
+                                final resp = await AuthService.resetPassword('+$phone');
+                                print('Ответ сервера: $resp');
+                                
+                                // Проверяем различные варианты успешного ответа
+                                if (resp['success'] == true || resp['status'] == 'success' || resp != null) {
+                                  if (mounted) {
+                                    Navigator.of(context).pop();
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(resp['message'] ?? resp['data']?['message'] ?? 'Новый пароль отправлен на ваш номер телефона!'),
+                                        backgroundColor: Colors.green,
+                                      ),
+                                    );
+                                  }
+                                } else {
+                                  setState(() => errorText = resp['error'] ?? resp['message'] ?? 'Ошибка сброса пароля');
+                                }
+                              } catch (e) {
+                                print('Ошибка при сбросе пароля: $e');
+                                setState(() => errorText = 'Ошибка: ${e.toString()}');
+                              } finally {
+                                setState(() => isLoading = false);
+                              }
+                            },
+                      child: isLoading
+                          ? const SizedBox(
+                              width: 24,
+                              height: 24,
+                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                            )
+                          : const Text('Сбросить', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
   final TextEditingController _phoneController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   final FocusNode _passwordFocusNode = FocusNode();
@@ -335,9 +449,7 @@ class _LoginPageState extends State<LoginPage> {
                 ),
                 const SizedBox(height: 14),
                 TextButton(
-                  onPressed: () {
-                    // TODO: Forgot password logic
-                  },
+                  onPressed: _showForgotPasswordBottomSheet,
                   child: const Text(
                     "Забыли пароль?",
                     style: TextStyle(

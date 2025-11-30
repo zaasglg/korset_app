@@ -94,8 +94,13 @@ class BookingCommissionService {
           final errorData = json.decode(response.body);
           final String errorMessage =
               errorData['message'] ?? 'Ошибка создания бронирования';
+          print('JSON parsing error: Exception: $errorMessage');
           throw Exception(errorMessage);
         } catch (jsonError) {
+          // Проверяем, является ли это уже Exception с правильным сообщением
+          if (jsonError is Exception && jsonError.toString().contains('Недостаточно средств')) {
+            throw jsonError; // Перебрасываем оригинальное сообщение
+          }
           print('JSON parsing error: $jsonError');
           // Если не удалось распарсить JSON, возвращаем статус код
           throw Exception('Ошибка сервера: ${response.statusCode}');
@@ -103,6 +108,13 @@ class BookingCommissionService {
       }
     } catch (e) {
       print('Booking creation exception: $e');
+      // Проверяем, содержит ли ошибка важное сообщение
+      final errorString = e.toString();
+      if (errorString.contains('Недостаточно средств') || 
+          errorString.contains('баланс') ||
+          errorString.contains('комиссии')) {
+        throw e; // Перебрасываем оригинальное сообщение
+      }
       throw Exception('Не удалось создать бронирование: $e');
     }
   }
